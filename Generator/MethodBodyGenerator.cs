@@ -33,7 +33,10 @@ namespace Generator
             }
         }
 
-        private string FixOpCodeName(string name) {
+        private static string FixOpCodeName(string name) {
+            if (name == "constrained.") {
+                return "Constrained";
+            }
             return string.Join('_',
                 from substr in name.Split('.') 
                 select char.ToUpper(substr[0]) + substr.Substring(1)
@@ -42,9 +45,8 @@ namespace Generator
 
         private static IEnumerable<string> DeclareLocals(string ilGeneratorName, IEnumerable<LocalVariableInfo> vars, Func<object,string> objectResolver) {
             return from variable in vars
-                let type = $"{objectResolver(variable.LocalType) ?? $"typeof({variable.LocalType.FullName})"}"
-                let isPinnedStr = variable.IsPinned.ToString()
-                let isPinned = char.ToLower(isPinnedStr[0]) + isPinnedStr.Substring(1)
+                let type = $"{objectResolver(variable.LocalType) ?? $"typeof({GenericConverter.ConvertGenericName(variable.LocalType, objectResolver)})"}"
+                let isPinned = variable.IsPinned.ToString().ToLower()
                 select $"{ilGeneratorName}.DeclareLocal({type}, {isPinned});";
         }
 
