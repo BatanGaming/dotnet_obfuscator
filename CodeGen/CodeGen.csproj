@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>netcoreapp3.1</TargetFramework>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <Compile Remove="Program.cs" />
+      <None Include="Program.cs">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Parser\Parser.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="System.CodeDom" Version="4.7.0" />
+    </ItemGroup>
+
+</Project>

@@ -1,15 +1,15 @@
-﻿using System.Linq;
+using System.Linq;
 
-namespace Generator
+namespace CodeGen
 {
-    internal static class AttributesParser
+    public static class AttributesGenerator
     {
-        public static string Parse(object obj) {
+        public static string Generate(object obj) {
             var attributes = obj.GetType().GetProperty("Attributes");
             return string.Join(" | ", 
                 from attribute in attributes.GetValue(obj).ToString().Split(',')
                 select $"{attributes.PropertyType.FullName}.{attribute.Trim()}"
-                );
+            );
         }
     }
 }

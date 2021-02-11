@@ -80,8 +80,7 @@ namespace Generator
                 if (labels.ContainsKey(instruction.Offset)) {
                     builder.AppendLine($@"{ilBuilderVarName}.MarkLabel({labels[instruction.Offset]});");
                 }
-
-                builder.Append($@"{ilBuilderVarName}.Emit(OpCodes.{FixOpCodeName(instruction.OpCode.Name)}");
+                
                 if (instruction.Operand != null) {
                     builder.Append(',');
                     if (instruction.OpCode.FlowControl == FlowControl.Cond_Branch ||
@@ -92,7 +91,6 @@ namespace Generator
                         builder.Append(StringifyInstruction(instruction.Operand, objectResolver(instruction.Operand)));
                     }
                 }
-                builder.AppendLine(");");
             }
 
             return builder.ToString();
