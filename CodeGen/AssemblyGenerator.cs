@@ -9,7 +9,7 @@ namespace CodeGen
 {
     public class AssemblyGenerator
     {
-        private readonly Assembly _assembly;
+        protected readonly Assembly _assembly;
         private const string ResultFile = "ProgramResult.cs";
 
         private void CreateResultFile() {
@@ -19,7 +19,7 @@ namespace CodeGen
             File.Copy("Program.cs", ResultFile);
         }
 
-        private static void WriteSection(string sectionKey, string text) {
+        protected static void WriteSection(string sectionKey, string text) {
             var prevText = File.ReadAllText(ResultFile);
             var newText = prevText.Replace(sectionKey, text);
             File.WriteAllText(ResultFile, newText);
@@ -63,7 +63,7 @@ namespace CodeGen
         private void GenerateProperties() {
         }
 
-        private void GenerateMethodsDefinitions() {
+        protected virtual void GenerateMethodsDefinitions() {
             var builder = new StringBuilder();
             foreach (var type in _assembly.DefinedTypes.ToList()) {
                 foreach (var method in type.GetMethods(BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static)) {
@@ -75,7 +75,7 @@ namespace CodeGen
             WriteSection("$METHODS_DEFINITIONS", builder.ToString());
         }
 
-        private void GenerateMethodBodies() {
+        protected virtual void GenerateMethodBodies() {
             var builder = new StringBuilder();
             foreach (var type in _assembly.DefinedTypes.ToList()) {
                 foreach (var method in type.GetMethods(BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static)) {

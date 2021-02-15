@@ -57,7 +57,7 @@ namespace CodeGen
                 OperandType.InlineSig => _module.ResolveSignature(token),
                 OperandType.InlineString => _module.ResolveString(token),
                 OperandType.InlineType => _module.ResolveType(token),
-                OperandType.InlineTok =>  SafeResolveToken(token),
+                OperandType.InlineTok => SafeResolveToken(token),
                 var x when
                     x == OperandType.ShortInlineI ||
                     x == OperandType.ShortInlineBrTarget ||

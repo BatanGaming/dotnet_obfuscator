@@ -1,17 +1,12 @@
-﻿using System;
-using System.Reflection.Emit;
+﻿using System.Reflection.Emit;
 
-namespace Parser
+namespace TestProject
 {
     public class Instruction
     {
         public OpCode OpCode { get; }
         public long? OperandToken { get; }
         public long Offset { get; }
-
-        public Instruction() {
-            
-        }
 
         public Instruction(OpCode opCode, long? operand, long offset) {
             OpCode = opCode;

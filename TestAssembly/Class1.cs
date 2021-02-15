@@ -11,6 +11,11 @@ namespace TestAssembly
         public int Method() {
             return a;
         }
+
+        public int Method2(int a, int b) {
+            Console.WriteLine(typeof(int).FullName);
+            return a;
+        }
         /*public static int Factorial(int n) {
             return n == 1
                 ? 1
