@@ -16,8 +16,6 @@ namespace CodeGen
             var builder = new StringBuilder();
             foreach (var type in _assembly.DefinedTypes.ToList()) {
                 foreach (var method in type.GetMethods(BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static)) {
-                    var code = new SerializableMethodGenerator(method).Generate();
-                    builder.AppendLine(code);
                 }
             }
 

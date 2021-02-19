@@ -9,15 +9,15 @@ namespace Parser
     public class IlParser
     {
         private readonly MethodInfo _method;
-        
+
         private static readonly List<OpCode>  _opCodes = 
             typeof(OpCodes)
             .GetFields()
             .Select(fi => (OpCode)fi.GetValue(null))
             .ToList();
         
-        private static int GetByteCount(OperandType type) {
-            return type switch
+        private static int GetByteCount(OperandType typeInfo) {
+            return typeInfo switch
             {
                 var x when
                     x == OperandType.InlineBrTarget ||
@@ -41,16 +41,16 @@ namespace Parser
             };
         }
 
-        private static long? GetToken(OpCode opCode, IReadOnlyList<byte> ilBytes, ref int i) {
+        private static int? GetToken(OpCode opCode, IReadOnlyList<byte> ilBytes, ref int i) {
             
             if (opCode.OperandType == OperandType.InlineNone) {
                 return null;
             }
-            long operandToken = 0;
+            var operandToken = 0;
             var byteCount = GetByteCount(opCode.OperandType);
             for (var j = 0; j < byteCount; j++) {
                 ++i;
-                operandToken |= (long)ilBytes[i] << (8 * j);
+                operandToken |= ilBytes[i] << (8 * j);
             }
 
             if (opCode.FlowControl == FlowControl.Branch || opCode.FlowControl == FlowControl.Cond_Branch) {
@@ -84,7 +84,13 @@ namespace Parser
                     offset = prevInstructions.Offset + prevInstructions.OpCode.Size +
                              GetByteCount(prevInstructions.OpCode.OperandType);
                 }
-                instructions.Add(new Instruction(opCode, operandToken, offset));
+                instructions.Add(
+                    new Instruction {
+                        OpCode = opCode,
+                        OperandToken = operandToken,
+                        Offset = offset
+                        }
+                    );
             }
 
             return instructions;

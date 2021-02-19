@@ -63,6 +63,17 @@ namespace CodeGen
         private void GenerateProperties() {
         }
 
+        private void CreateTypes() {
+            var builder = new StringBuilder();
+            var types = _assembly.DefinedTypes.ToList();
+            foreach (var type in types) {
+                var generatorName = CommonGenerator.ResolveCustomName(type);
+                builder.AppendLine(
+                    $"var {generatorName.Remove(generatorName.IndexOf("_builder"))} = {generatorName}.CreateType();");
+            }
+            WriteSection("$CREATED_TYPES", builder.ToString());
+        }
+
         protected virtual void GenerateMethodsDefinitions() {
             var builder = new StringBuilder();
             foreach (var type in _assembly.DefinedTypes.ToList()) {
@@ -99,6 +110,7 @@ namespace CodeGen
             GenerateFields();
             GenerateMethodsDefinitions();
             GenerateMethodBodies();
+            CreateTypes();
         }
     }
 }

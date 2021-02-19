@@ -1,22 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Reflection;
 
 namespace TestAssembly
 {
     public class Class1
     {
-        private int a = 2;
-
-        public int Method() {
-            return a;
-        }
-
-        public int Method2(int a, int b) {
-            Console.WriteLine(typeof(int).FullName);
-            return a;
-        }
-        /*public static int Factorial(int n) {
+        public static int Factorial(int n) {
             return n == 1
                 ? 1
                 : n * Factorial(n - 1);
@@ -27,6 +16,6 @@ namespace TestAssembly
             foreach (var i in list) {
                 Console.WriteLine(Factorial(i));
             }
-        }*/
+        }
     }
 }
