@@ -81,14 +81,14 @@ namespace CodeGen
             _module = _method.Module;
         }
 
-        public List<InstructionInfo> Generate() {
+        public SerializableMethodBody Generate() {
             var parser = new IlParser(_method);
             var instructions = from instruction in parser.Parse()
                 let operand = instruction.OperandToken != null
                     ? ResolveToken(instruction.OperandToken.Value, instruction.OpCode.OperandType)
                     : null
-                let parameters = operand is MethodInfo method
-                    ? method.GetParameters().Select(ResolveObjectName).ToArray()
+                let parameters = operand is MethodBase method
+                    ? method.GetParameters().Select(p => ResolveObjectName(p.ParameterType)).ToArray()
                     : null
                 select new InstructionInfo {
                     Offset = instruction.Offset,
@@ -99,7 +99,14 @@ namespace CodeGen
                         ParametersTypesNames = parameters
                     }
                 };
-            return instructions.ToList();
+            var methodBody = _method.GetMethodBody();
+            return new SerializableMethodBody {
+                Instructions = instructions.ToList(),
+                IlCode = methodBody.GetILAsByteArray(),
+                MaxStackSize = methodBody.MaxStackSize,
+                LocalVariables = methodBody.LocalVariables.Select(l => new SerializableLocalVariableInfo{IsPinned = l.IsPinned, TypeName = l.LocalType.FullName}).ToList()
+            };
+            //return new SerializableMethodBody();
         }
     }
 }
