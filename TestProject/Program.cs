@@ -13,13 +13,19 @@ namespace TestProject
     public static class Program
     {
         private static readonly Dictionary<string, object> _methods = new Dictionary<string, object>();
-        
+        private static readonly Dictionary<string, Type> _cachedTypes = new Dictionary<string, Type>();
+        private static readonly Dictionary<string, MethodInfo> _cachedMethods = new Dictionary<string, MethodInfo>();
+
         private static Type GetTypeByName(string name) {
+            if (_cachedTypes.TryGetValue(name, out var type)) {
+                return type;
+            }
             var assemblies = AppDomain.CurrentDomain.GetAssemblies();
             foreach (var assembly in assemblies) {
-                var t = assembly.GetType(name);
-                if (t != null) {
-                    return t;
+                var foundedType = assembly.GetType(name);
+                if (foundedType != null) {
+                    _cachedTypes[name] = foundedType;
+                    return foundedType;
                 }
             }
 
@@ -29,13 +35,18 @@ namespace TestProject
         private static MethodInfo GetMethodByName(string name, IReadOnlyCollection<string> parametersNames) {
             var index = name.LastIndexOf('.');
             var methodName = name.Substring(index + 1);
+            var cachedName = $"{methodName}({string.Join(',', parametersNames)})";
+            if (_cachedMethods.TryGetValue(cachedName, out var method)) {
+                return method;
+            }
             var typeName = name.Remove(index);
             var type = GetTypeByName(typeName);
             var parametersTypes = parametersNames.Count != 0
                 ? (from parameter in parametersNames select GetTypeByName(parameter)).ToArray()
                 : Type.EmptyTypes;
-            var m = type.GetMethod(methodName, parametersTypes);
-            return m;
+            method = type.GetMethod(methodName, parametersTypes);
+            _cachedMethods[cachedName] = method;
+            return method;
         }
 
         private static FieldInfo GetFieldByName(string name) {
@@ -134,23 +145,22 @@ namespace TestProject
         }
 
         private static Delegate GetMethod(string name, MethodInfo methodInfo, object target) {
+            if (_methods[name] is (DynamicMethod method, Type delegateType)) {
+                return method.CreateDelegate(delegateType, target);
+            }
             var parameters = methodInfo.GetParameters().Select(p => p.ParameterType).ToList();
             var hasReturnType = methodInfo.ReturnType != typeof(void);
-            var delegateType = CloseDelegateType(
+            delegateType = CloseDelegateType(
                 GetDelegateType(parameters.Count, hasReturnType),
                     (hasReturnType
                         ? parameters.Concat(new[] {methodInfo.ReturnType})
                         : parameters).ToArray()
                 );
             
-            /*if (_methods[name] is DynamicMethod method) {
-                return method.CreateDelegate(delegateType, target);
-            }*/
-
             if (!methodInfo.IsStatic) {
                 parameters.Insert(0, methodInfo.DeclaringType);
             }
-            var method = new DynamicMethod(
+            method = new DynamicMethod(
                 methodInfo.Name, 
                 methodInfo.ReturnType, 
                 parameters.ToArray(),
@@ -168,7 +178,7 @@ namespace TestProject
             
             OverwriteTokens(methodBody, ilInfo);
             ilInfo.SetCode(methodBody.IlCode, methodBody.MaxStackSize);
-            //_methods[name] = method;
+            _methods[name] = (method, delegateType);
             return method.CreateDelegate(delegateType, target);
         }
         
@@ -176,8 +186,13 @@ namespace TestProject
             var stackTrace = new StackTrace();
             var caller = stackTrace.GetFrame(1).GetMethod();
             var name = $"{caller.DeclaringType.FullName}.{caller.Name}";
-            var callerMethodInfo =
-                GetMethodByName(name, caller.GetParameters().Select(p => p.ParameterType.FullName).ToList());
+            var callerMethodInfo = GetMethodByName(
+                name, 
+                caller
+                    .GetParameters()
+                    .Select(p => p.ParameterType.FullName)
+                    .ToList()
+                );
             return GetMethod(name, callerMethodInfo, target);
         }
 
@@ -191,15 +206,15 @@ namespace TestProject
         }
 
         public static void Main(string[] args) {
-            var n = 50;
+            var n = int.Parse(args[0]);
             TestGenerate();
             var watch = Stopwatch.StartNew();
-            TestClass.FactorialMany(n);
+            TestClass.TestFactorialMany(n);
             watch.Stop();
             Console.WriteLine($"{watch.ElapsedMilliseconds} ms");
             watch.Reset();
             watch.Start();
-            TestClass.OldFactorialMany(n);
+            TestClass.FactorialMany(n);
             watch.Stop();
             Console.WriteLine($"{watch.ElapsedMilliseconds} ms");
             /*var testObject = new TestClass();

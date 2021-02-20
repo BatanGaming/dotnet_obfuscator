@@ -13,6 +13,22 @@ namespace TestProject
                 ? 1
                 : n * Factorial(n - 1);
         }
+
+        public static BigInteger TestFactorial(int n) {
+            return n == 1
+                ? 1
+                : n * TestFactorial(n - 1);
+        }
+
+        public static BigInteger TestFactorialMany(int n) {
+            var list = Enumerable.Range(1, n);
+            BigInteger sum = 0;
+            foreach (var i in list) {
+                sum += TestFactorial(i);
+            }
+
+            return sum;
+        }
         
         public static BigInteger Factorial(int n) {
             FieldFactorial = (Func<int, BigInteger>) Program.GetMethod(null);
