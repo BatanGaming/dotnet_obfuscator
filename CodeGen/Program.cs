@@ -15,6 +15,7 @@ namespace ResultProject
         public class InstructionInfo
         {
             public long Offset { get; set; }
+            public int Size { get; set; }
             public OperandInfo OperandInfo { get; set; }
         }
         
@@ -22,11 +23,9 @@ namespace ResultProject
         public class OperandInfo
         {
             public OperandTypeInfo? OperandType { get; set; }
-            public int? OperandToken { get; set; }
             public string OperandName { get; set; }
             public string[] ParametersTypesNames { get; set; }
             public string[] GenericTypesNames { get; set; }
-            public bool? IsExtensionMethod { get; set; }
         }
         
         [Serializable]
@@ -171,7 +170,7 @@ namespace ResultProject
                         };
                         break;
                 }
-                OverwriteInt32(token, (int)instruction.Offset + 1, body.IlCode);
+                OverwriteInt32(token, (int)instruction.Offset + instruction.Size, body.IlCode);
             }
         }
         

@@ -97,12 +97,11 @@ namespace CodeGen
                     : null
                 select new InstructionInfo {
                     Offset = instruction.Offset,
+                    Size = instruction.OpCode.Size,
                     OperandInfo = new OperandInfo {
-                        OperandToken = instruction.OperandToken,
                         OperandType = ConvertOperandType(instruction.OpCode.OperandType),
                         OperandName = ResolveObjectName(operand),
                         ParametersTypesNames = parameters,
-                        IsExtensionMethod = (operand as MethodBase)?.IsDefined(typeof(ExtensionAttribute), false),
                         GenericTypesNames = genericArguments
                     }
                 };
