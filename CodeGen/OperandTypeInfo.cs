@@ -1,5 +1,8 @@
-﻿namespace CodeGen
+﻿using System;
+
+namespace CodeGen
 {
+    [Serializable]
     public enum OperandTypeInfo
     {
         Type,

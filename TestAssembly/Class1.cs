@@ -1,21 +1,34 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Linq;
+using System.Numerics;
 
 namespace TestAssembly
 {
     public class Class1
     {
-        public static int Factorial(int n) {
-            return n == 1
-                ? 1
-                : n * Factorial(n - 1);
+        private int _a;
+
+        public Class1(int a) {
+            _a = a;
+        }
+        
+        
+        
+        public static BigInteger Factorial(int n) {
+            BigInteger result = 1;
+            for (var i = 2; i <= n; ++i) {
+                result *= i;
+            }
+
+            return result;
+        }
+        
+        public BigInteger SumFactorial(int n) {
+            var list = Enumerable.Range(1, n);
+            return list.Aggregate<int, BigInteger>(0, (current, i) => current + Factorial(i));
         }
 
-        public void FactorialMany() {
-            var list = new List<int> {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
-            foreach (var i in list) {
-                Console.WriteLine(Factorial(i));
-            }
+        public virtual int get() {
+            return _a;
         }
     }
 }

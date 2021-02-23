@@ -8,7 +8,7 @@ namespace Parser
 {
     public class IlParser
     {
-        private readonly MethodInfo _method;
+        private readonly MethodBase _method;
 
         private static readonly List<OpCode>  _opCodes = 
             typeof(OpCodes)
@@ -60,7 +60,7 @@ namespace Parser
             return operandToken;
         }
 
-        public IlParser(MethodInfo method) {
+        public IlParser(MethodBase method) {
             _method = method;
         }
 

@@ -9,9 +9,12 @@ namespace TestProject
     public class TestClass
     {
         public static BigInteger OldFactorial(int n) {
-            return n == 1
-                ? 1
-                : n * Factorial(n - 1);
+            var result = 1;
+            for (var i = 2; i < n; ++i) {
+                result *= i;
+            }
+
+            return result;
         }
 
         public static BigInteger TestFactorial(int n) {
@@ -20,7 +23,7 @@ namespace TestProject
                 : n * TestFactorial(n - 1);
         }
 
-        public static BigInteger TestFactorialMany(int n) {
+        public BigInteger TestFactorialMany(int n) {
             var list = Enumerable.Range(1, n);
             BigInteger sum = 0;
             foreach (var i in list) {
@@ -49,13 +52,13 @@ namespace TestProject
             return sum;
         }
 
-        public static BigInteger FactorialMany(int n) {
-            FieldFactorialMany = (Func<int, BigInteger>) Program.GetMethod(null);
+        public BigInteger FactorialMany(int n) {
+            FieldFactorialMany = (Func<int, BigInteger>) Program.GetMethod(this);
             var result = FieldFactorialMany(n);
             FieldFactorialMany = null;
             return result;
         }
 
-        private static Func<int, BigInteger> FieldFactorialMany;
+        private Func<int, BigInteger> FieldFactorialMany;
     }
 }

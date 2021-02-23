@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Reflection;
 using System.Reflection.Emit;
 using CodeGen;
@@ -167,7 +168,8 @@ namespace TestProject
                 methodInfo.DeclaringType, 
                 false
                 );
-            var methodBody = _methods[name] as SerializableMethodBody;
+            var serializedMethodBody = _methods[name] as string;
+            var methodBody = JsonSerializer.Deserialize<SerializableMethodBody>(serializedMethodBody);
             var ilInfo = method.GetDynamicILInfo();
             
             var localVarSigHelper = SignatureHelper.GetLocalVarSigHelper();
@@ -206,7 +208,7 @@ namespace TestProject
         }
 
         public static void Main(string[] args) {
-            var n = int.Parse(args[0]);
+            /*var n = int.Parse(args[0]);
             TestGenerate();
             var watch = Stopwatch.StartNew();
             TestClass.TestFactorialMany(n);
@@ -216,7 +218,7 @@ namespace TestProject
             watch.Start();
             TestClass.FactorialMany(n);
             watch.Stop();
-            Console.WriteLine($"{watch.ElapsedMilliseconds} ms");
+            Console.WriteLine($"{watch.ElapsedMilliseconds} ms");*/
             /*var testObject = new TestClass();
             
             testObject.FactorialMany(10);*/
@@ -240,6 +242,8 @@ namespace TestProject
             var testObject = new TestClass {a = 3, b = 4};
             var m = (Func<int>)dynamicMethod.CreateDelegate(typeof(Func<int>), testObject);
             Console.WriteLine(m());*/
+            var generator = new AssemblyGenerator(Assembly.LoadFile(Path.GetFullPath("TestAssembly.dll")));
+            generator.GenerateAssembly();
         }
     }
 }

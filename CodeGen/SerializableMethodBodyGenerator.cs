@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Runtime.CompilerServices;
 using Parser;
 
 namespace CodeGen
@@ -70,8 +71,9 @@ namespace CodeGen
             return obj switch {
                 Type type => type.FullName,
                 string str => str,
-                FieldInfo field => $"{field.DeclaringType.FullName}.{field.Name}",
-                MethodInfo method => $"{method.DeclaringType.FullName}.{method.Name}",
+                FieldInfo field => $"{field.DeclaringType.FullName}#{field.Name}",
+                MethodInfo method => $"{method.DeclaringType.FullName}#{method.Name}",
+                ConstructorInfo constructor => $"{constructor.DeclaringType.FullName}#{constructor.Name}",
                 _ => null
             };
         }
@@ -90,13 +92,18 @@ namespace CodeGen
                 let parameters = operand is MethodBase method
                     ? method.GetParameters().Select(p => ResolveObjectName(p.ParameterType)).ToArray()
                     : null
+                let genericArguments = (operand is MethodBase method && !method.Name.Contains("ctor"))
+                    ? method.GetGenericArguments().Select(ResolveObjectName).ToArray()
+                    : null
                 select new InstructionInfo {
                     Offset = instruction.Offset,
                     OperandInfo = new OperandInfo {
                         OperandToken = instruction.OperandToken,
                         OperandType = ConvertOperandType(instruction.OpCode.OperandType),
                         OperandName = ResolveObjectName(operand),
-                        ParametersTypesNames = parameters
+                        ParametersTypesNames = parameters,
+                        IsExtensionMethod = (operand as MethodBase)?.IsDefined(typeof(ExtensionAttribute), false),
+                        GenericTypesNames = genericArguments
                     }
                 };
             var methodBody = _method.GetMethodBody();
@@ -106,7 +113,6 @@ namespace CodeGen
                 MaxStackSize = methodBody.MaxStackSize,
                 LocalVariables = methodBody.LocalVariables.Select(l => new SerializableLocalVariableInfo{IsPinned = l.IsPinned, TypeName = l.LocalType.FullName}).ToList()
             };
-            //return new SerializableMethodBody();
         }
     }
 }

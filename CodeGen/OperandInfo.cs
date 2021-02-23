@@ -1,7 +1,5 @@
 ﻿using System;
 
-#nullable enable
-
 namespace CodeGen
 {
     [Serializable]
@@ -9,7 +7,9 @@ namespace CodeGen
     {
         public OperandTypeInfo? OperandType { get; set; }
         public int? OperandToken { get; set; }
-        public string? OperandName { get; set; }
-        public string[]? ParametersTypesNames { get; set; }
+        public string OperandName { get; set; }
+        public string[] ParametersTypesNames { get; set; }
+        public string[] GenericTypesNames { get; set; }
+        public bool? IsExtensionMethod { get; set; }
     }
 }

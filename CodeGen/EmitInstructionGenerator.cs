@@ -94,7 +94,7 @@ namespace CodeGen
                 case Type type:
                     return CommonGenerator.ResolveTypeName(type);
                 case FieldInfo field:
-                    return CommonGenerator.ResolveTypeName(field.FieldType);
+                    return CommonGenerator.ResolveCustomName(field);
                 case MethodBase method:
                 {
                     var customName = CommonGenerator.ResolveCustomName(method);

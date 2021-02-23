@@ -3,9 +3,7 @@ using System.CodeDom;
 using System.CodeDom.Compiler;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Reflection;
-using System.Text.RegularExpressions;
 
 namespace CodeGen
 {
@@ -15,8 +13,13 @@ namespace CodeGen
         private static readonly Dictionary<FieldInfo, string> _fieldsBuildersNames = new Dictionary<FieldInfo, string>();
         private static readonly Dictionary<MethodBase, string> _methodsDefinitionsBuildersNames = new Dictionary<MethodBase, string>();
         private static readonly Dictionary<MethodBase, string> _methodsBodiesBuildersNames = new Dictionary<MethodBase, string>();
+        private static int _duplicates = 0;
 
-        public static string ResolveTypeName(Type type, bool isInsideGeneric = false) {
+        public static string FixSpecialName(string name) {
+            return name.Replace(".", "").Replace("<", "").Replace(">", "");
+        }
+
+        public static string ResolveTypeName(Type type) {
             var custom = ResolveCustomName(type);
             if (custom != null) {
                 return custom;
@@ -30,7 +33,7 @@ namespace CodeGen
             return $"typeof({writer.GetStringBuilder()})";
         }
 
-        public static string ResolveMethodBodyBuilderName(MethodInfo method) {
+        public static string ResolveMethodBodyBuilderName(MethodBase method) {
             return _methodsBodiesBuildersNames.ContainsKey(method) ? _methodsBodiesBuildersNames[method] : null;
         }
 
@@ -44,23 +47,106 @@ namespace CodeGen
         }
         
         public static string GenerateTypeGeneratorName(Type type) {
-            _typesBuildersNames[type] = $"type_{type.Name}_builder";
+            var name = type.IsSpecialName()
+                ? FixSpecialName(type.Name)
+                : type.Name;
+            var resultName = $"type_{name}_builder";
+            if (_typesBuildersNames.ContainsValue(resultName)) {
+                resultName += $"_{_duplicates++}";
+            }
+            _typesBuildersNames[type] = resultName;
             return _typesBuildersNames[type];
         }
 
         public static string GenerateFieldGeneratorName(FieldInfo field) {
-            _fieldsBuildersNames[field] = $"type_{field.DeclaringType.Name}_field_{field.Name}_builder";
+            var name = field.IsSpecialName()
+                ? FixSpecialName(field.Name)
+                : field.Name;
+            var declaringTypeName = field.DeclaringType.IsSpecialName()
+                ? FixSpecialName(field.DeclaringType.Name)
+                : field.DeclaringType.Name;
+            var resultName = $"type_{declaringTypeName}_field_{name}_builder";
+            if (_fieldsBuildersNames.ContainsValue(resultName)) {
+                resultName += $"_{_duplicates++}";
+            }
+            _fieldsBuildersNames[field] = resultName;
             return _fieldsBuildersNames[field];
         }
 
         public static string GenerateMethodDefinitionGeneratorName(MethodBase method) {
-            _methodsDefinitionsBuildersNames[method] = $"type_{method.DeclaringType.Name}_method_{method.Name}_builder";
+            var name = method.IsSpecialName()
+                ? FixSpecialName(method.Name)
+                : method.Name;
+            var declaringTypeName = method.DeclaringType.IsSpecialName()
+                ? FixSpecialName(method.DeclaringType.Name)
+                : method.DeclaringType.Name;
+            var resultName = $"type_{declaringTypeName}_method_{name}_builder";
+            if (_methodsDefinitionsBuildersNames.ContainsValue(resultName)) {
+                resultName += $"_{_duplicates++}";
+            }
+            
+            _methodsDefinitionsBuildersNames[method] = resultName;
             return _methodsDefinitionsBuildersNames[method];
         }
 
         public static string GenerateMethodBodyGeneratorName(MethodBase method) {
-            _methodsBodiesBuildersNames[method] = $"type_{method.DeclaringType.Name}_il_method_{method.Name}_builder";
+            var name = method.IsSpecialName()
+                ? FixSpecialName(method.Name)
+                : method.Name;
+            var declaringTypeName = method.DeclaringType.IsSpecialName()
+                ? FixSpecialName(method.DeclaringType.Name)
+                : method.DeclaringType.Name;
+            var resultName = $"type_{declaringTypeName}_il_method_{name}_builder";
+            if (_methodsBodiesBuildersNames.ContainsValue(resultName)) {
+                resultName += $"_{_duplicates++}";
+            }
+            
+            _methodsBodiesBuildersNames[method] = resultName;
             return _methodsBodiesBuildersNames[method];
+        }
+        
+        public static Type GetDelegateType(int parametersCount, bool returnValue) {
+            return parametersCount switch {
+                0 when returnValue => typeof(Func<>),
+                0 when !returnValue => typeof(Action),
+                1 when returnValue => typeof(Func<,>),
+                1 when !returnValue => typeof(Action<>),
+                2 when returnValue => typeof(Func<,,>),
+                2 when !returnValue => typeof(Action<,>),
+                3 when returnValue => typeof(Func<,,,>),
+                3 when !returnValue => typeof(Action<,,>),
+                4 when returnValue => typeof(Func<,,,,>),
+                4 when !returnValue => typeof(Action<,,,>),
+                5 when returnValue => typeof(Func<,,,,,>),
+                5 when !returnValue => typeof(Action<,,,,>),
+                6 when returnValue => typeof(Func<,,,,,,>),
+                6 when !returnValue => typeof(Action<,,,,,>),
+                7 when returnValue => typeof(Func<,,,,,,,>),
+                7 when !returnValue => typeof(Action<,,,,,,>),
+                8 when returnValue => typeof(Func<,,,,,,,,>),
+                8 when !returnValue => typeof(Action<,,,,,,,>),
+                9 when returnValue => typeof(Func<,,,,,,,,,>),
+                9 when !returnValue => typeof(Action<,,,,,,,,>),
+                10 when returnValue => typeof(Func<,,,,,,,,,,>),
+                10 when !returnValue => typeof(Action<,,,,,,,,,>),
+                11 when returnValue => typeof(Func<,,,,,,,,,,,>),
+                11 when !returnValue => typeof(Action<,,,,,,,,,,>),
+                12 when returnValue => typeof(Func<,,,,,,,,,,,,>),
+                12 when !returnValue => typeof(Action<,,,,,,,,,,,>),
+                13 when returnValue => typeof(Func<,,,,,,,,,,,,,>),
+                13 when !returnValue => typeof(Action<,,,,,,,,,,,,>),
+                14 when returnValue => typeof(Func<,,,,,,,,,,,,,,>),
+                14 when !returnValue => typeof(Action<,,,,,,,,,,,,,>),
+                15 when returnValue => typeof(Func<,,,,,,,,,,,,,,,>),
+                15 when !returnValue => typeof(Action<,,,,,,,,,,,,,,>),
+                16 when returnValue => typeof(Func<,,,,,,,,,,,,,,,,>),
+                16 when !returnValue => typeof(Action<,,,,,,,,,,,,,,,>),
+                _ => throw new ArgumentOutOfRangeException()
+            };
+        }
+
+        public static Type CloseDelegateType(Type delegateType, Type[] genericTypes) {
+            return delegateType.MakeGenericType(genericTypes);
         }
     }
 }
