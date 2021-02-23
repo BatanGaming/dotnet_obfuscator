@@ -1,0 +1,14 @@
+Task list
+- Types
+- - [x] ~~Classes~~
+- - [ ] Structs
+- - [ ] Enums
+- - [ ] Generic classes
+- - [ ] Generic structs
+- - [ ] Anonymous types (not tested)
+- Members
+- - [x] ~~Fields~~
+- - [x] ~~Methods~~
+- - [x] ~~Generic methods~~
+- Other
+- - [x] ~~Lambdas~~
