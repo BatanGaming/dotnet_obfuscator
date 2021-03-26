@@ -4,11 +4,15 @@ Task list
 - - [ ] Structs
 - - [ ] Enums
 - - [ ] Generic classes
-- - [ ] Generic structs
-- - [ ] Anonymous types (not tested)
+- - [ ] Anonymous types
 - Members
 - - [x] ~~Fields~~
 - - [x] ~~Methods~~
-- - [x] ~~Generic methods~~
+- - [ ] Generic methods
+- - [ ] Properties
 - Other
 - - [x] ~~Lambdas~~
+- - [ ] Instanciate generic methods
+- - [ ] Instanciate generic classes
+- - [ ] Interface inheritance
+- - [ ] Reflection
