@@ -1,7 +1,7 @@
 using System;
 using System.Reflection;
 
-namespace CodeGen
+namespace CodeGen.Extensions
 {
     public static class SpecialNameExtensions
     {

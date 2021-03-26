@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace CodeGen
+namespace CodeGen.Models
 {
     [Serializable]
     public enum OperandTypeInfo

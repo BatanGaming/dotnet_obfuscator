@@ -1,11 +1,8 @@
-using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using System.Reflection.Emit;
 using System.Text;
-using Parser;
 
-namespace CodeGen
+namespace CodeGen.Generators
 {
     public class MethodBodyGenerator
     {

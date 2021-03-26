@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace CodeGen
+namespace CodeGen.Models
 {
     [Serializable]
     public class SerializableMethodBody

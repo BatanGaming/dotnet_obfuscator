@@ -4,8 +4,10 @@ using System.CodeDom.Compiler;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
+using System.Text.Json;
+using CodeGen.Extensions;
 
-namespace CodeGen
+namespace CodeGen.Generators
 {
     public static class CommonGenerator
     {
@@ -13,8 +15,16 @@ namespace CodeGen
         private static readonly Dictionary<FieldInfo, string> _fieldsBuildersNames = new Dictionary<FieldInfo, string>();
         private static readonly Dictionary<MethodBase, string> _methodsDefinitionsBuildersNames = new Dictionary<MethodBase, string>();
         private static readonly Dictionary<MethodBase, string> _methodsBodiesBuildersNames = new Dictionary<MethodBase, string>();
-        private static int _duplicates = 0;
 
+        private static readonly Lazy<Dictionary<string, string>> _templates =
+            new Lazy<Dictionary<string, string>>(InitTemplates);
+        
+        private static int _duplicates = 0;
+        private static Dictionary<string, string> InitTemplates() {
+            using var reader = new StreamReader("templates.json");
+            var json = reader.ReadToEnd();
+            return JsonSerializer.Deserialize<Dictionary<string, string>>(json);
+        }
         public static string FixSpecialName(string name) {
             return name.Replace(".", "").Replace("<", "").Replace(">", "");
         }

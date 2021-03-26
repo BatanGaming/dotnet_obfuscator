@@ -3,9 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using CodeGen.Extensions;
 using Parser;
 
-namespace CodeGen
+namespace CodeGen.Generators
 {
     public class EmitInstructionGenerator
     {

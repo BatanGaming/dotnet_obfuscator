@@ -1,6 +1,6 @@
 using System.Linq;
 
-namespace CodeGen
+namespace CodeGen.Generators
 {
     public static class AttributesGenerator
     {

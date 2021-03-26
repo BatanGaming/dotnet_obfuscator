@@ -2,7 +2,7 @@ using System;
 using System.Linq;
 using System.Reflection;
 
-namespace CodeGen
+namespace CodeGen.Generators
 {
     public class FieldGenerator
     {
