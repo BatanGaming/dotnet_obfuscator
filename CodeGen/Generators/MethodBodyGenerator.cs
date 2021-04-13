@@ -8,9 +8,6 @@ namespace CodeGen.Generators
     {
         private readonly MethodInfo _method;
 
-
-        
-
         public MethodBodyGenerator(MethodInfo method) {
             _method = method;
         }

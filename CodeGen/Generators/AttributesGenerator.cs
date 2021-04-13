@@ -4,11 +4,10 @@ namespace CodeGen.Generators
 {
     public static class AttributesGenerator
     {
-        public static string Generate(object obj) {
-            var attributes = obj.GetType().GetProperty("Attributes");
+        public static string Generate(object attributes) {
             return string.Join(" | ", 
-                from attribute in attributes.GetValue(obj).ToString().Split(',')
-                select $"{attributes.PropertyType.FullName}.{attribute.Trim()}"
+                from attribute in attributes.ToString().Split(',')
+                select $"{attributes.GetType().FullName}.{attribute.Trim()}"
             );
         }
     }

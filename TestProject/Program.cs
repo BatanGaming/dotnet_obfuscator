@@ -7,6 +7,8 @@ using System.Reflection.Emit;
 using CodeGen;
 using System.Linq;
 using System.Text.Json;
+using CodeGen.Generators;
+using CodeGen.Models;
 
 namespace TestProject
 {

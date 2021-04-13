@@ -13,8 +13,8 @@ namespace CodeGen.Generators
 
         public string Generate() {
             return new SimpleClass {
-                TypeName = $@"""${_type.FullName}""",
-                Attributes = string.Join(" | ", AttributesGenerator.Generate(_type)),
+                TypeName = _type.FullName,
+                Attributes = _type.Attributes,
                 BaseTypeName = CommonGenerator.ResolveTypeName(_type.BaseType)
             }.Overwrite();
         }

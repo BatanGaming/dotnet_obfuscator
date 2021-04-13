@@ -1,8 +1,8 @@
 namespace CodeGen.Templates
 {
-    public interface BaseTemplate
+    public interface Template
     {
-        public string Template { get; set; }
+        public string Template { get; }
 
         public string Overwrite();
     }
