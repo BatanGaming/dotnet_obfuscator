@@ -10,9 +10,10 @@ Task list
 - - [x] ~~Methods~~
 - - [ ] Generic methods
 - - [ ] Properties
+- - [ ] Events
 - Other
 - - [x] ~~Lambdas~~
-- - [ ] Instanciate generic methods
-- - [ ] Instanciate generic classes
+- - [x] Instanciate generic methods
+- - [x] Instanciate generic classes
 - - [ ] Interface inheritance
 - - [ ] Reflection
