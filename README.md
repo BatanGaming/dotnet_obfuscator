@@ -1,18 +1,18 @@
 Task list
 - Types
-- - [x] ~~Classes~~
+- - [x] Classes
 - - [ ] Structs
 - - [ ] Enums
 - - [ ] Generic classes
 - - [ ] Anonymous types
 - Members
-- - [x] ~~Fields~~
-- - [x] ~~Methods~~
+- - [x] Fields
+- - [x] Methods
 - - [ ] Generic methods
 - - [ ] Properties
 - - [ ] Events
 - Other
-- - [x] ~~Lambdas~~
+- - [x] Lambdas
 - - [x] Instanciate generic methods
 - - [x] Instanciate generic classes
 - - [ ] Interface inheritance
