@@ -222,7 +222,9 @@ namespace ResultProject
         }
 
         private static Type CloseDelegateType(Type delegateType, Type[] genericTypes) {
-            return delegateType.MakeGenericType(genericTypes);
+            return delegateType.IsGenericTypeDefinition
+                ? delegateType.MakeGenericType(genericTypes)
+                : delegateType;
         }
 
         private static Delegate GetMethod(string name, MethodInfo methodInfo, object target) {
@@ -245,7 +247,7 @@ namespace ResultProject
                 methodInfo.Name, 
                 methodInfo.ReturnType, 
                 parameters.ToArray(),
-                methodInfo.DeclaringType, 
+                target?.GetType() ?? methodInfo.DeclaringType,
                 false
             );
             var encodedMethodBody = _methods[name] as string;
@@ -293,8 +295,13 @@ namespace ResultProject
             var module_builder = assembly_builder.DefineDynamicModule(assembly_name.Name + ".dll");
                 
             $TYPES
-
-
+                
+            $NESTED_TYPES
+                
+            $PARENTS    
+                
+            $INTERFACES_IMPLEMENTATIONS
+                
             $FIELDS
                 
                 

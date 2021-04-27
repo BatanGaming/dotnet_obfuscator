@@ -50,7 +50,7 @@ namespace CodeGen.Generators
         }
 
         private object ResolveToken() {
-            var token = (int) _instruction.OperandToken!.Value;
+            var token = _instruction.OperandToken!.Value;
             return _instruction.OpCode.OperandType switch
             {
                 OperandType.InlineMethod => _module.ResolveMethod(token),

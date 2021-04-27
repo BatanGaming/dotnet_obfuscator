@@ -5,6 +5,8 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
+using CodeGen.Generators.MembersGenerators;
+using CodeGen.Generators.TypesGenerators;
 
 namespace CodeGen.Generators
 {
@@ -25,44 +27,56 @@ namespace CodeGen.Generators
             var newText = prevText.Replace(sectionKey, text);
             File.WriteAllText(ResultFile, newText);
         }
-        
-        private void GenerateTypes() {
+
+        private static string GenerateType(Type type) {
+            Generator generator = null;
+            if (type.IsClass) {
+                generator = new ClassGenerator(type);
+            }
+            else if (type.IsInterface) {
+                generator = new InterfaceGenerator(type);
+            }
+
+            return generator?.Generate();
+        }
+
+        private void GenerateRootTypesDefinitions() {
             var builder = new StringBuilder();
-            var types = _assembly.DefinedTypes.ToList();
-            var stack = new Stack<TypeInfo>();
-            while (stack.Count != 0 || types.Count != 0) {
-                if (stack.Count == 0) {
-                    stack.Push(types[0]);
-                }
-
-                var type = stack.Peek();
-                if (CommonGenerator.ResolveCustomName(type) != null) {
-                    stack.Pop();
-                    continue;
-                }
-                if (type.BaseType.Assembly == _assembly && CommonGenerator.ResolveCustomName(type.BaseType) == null) {
-                    stack.Push(type.BaseType.GetTypeInfo());
-                    continue;
-                }
-
-                if (type.IsNested && CommonGenerator.ResolveCustomName(type.DeclaringType) == null) {
-                    stack.Push(type.DeclaringType.GetTypeInfo());
-                    continue;
-                }
-
-                stack.Pop();
-                //todo switch by type
-                if (type.IsNested) {
-                    var code = new NestedClassGenerator(type).Generate();
-                    builder.AppendLine($"var {CommonGenerator.GenerateTypeGeneratorName(type)} = {CommonGenerator.ResolveCustomName(type.DeclaringType)}.{code};");
-                }
-                else {
-                    var code = new ClassGenerator(type).Generate();
-                    builder.AppendLine($"var {CommonGenerator.GenerateTypeGeneratorName(type)} = module_builder.{code};");
-                }
-                types.Remove(type);
+            foreach (var type in _assembly.DefinedTypes.Where(t => !t.IsNested).ToList()) {
+                builder.AppendLine($"var {CommonGenerator.GenerateTypeGeneratorName(type)} = module_builder.{GenerateType(type)};");
             }
             WriteSection("$TYPES", builder.ToString());
+        }
+
+        private void GenerateNestedTypesDefinitions() {
+            var builder = new StringBuilder();
+            foreach (var type in _assembly.DefinedTypes.Where(t => t.IsNested).ToList()) {
+                builder.AppendLine($"var {CommonGenerator.GenerateTypeGeneratorName(type)} = {CommonGenerator.ResolveCustomName(type.DeclaringType)}.{GenerateType(type)};");
+            }
+            WriteSection("$NESTED_TYPES", builder.ToString());
+        }
+
+        private void SetParents() {
+            var builder = new StringBuilder();
+            foreach (var type in _assembly.DefinedTypes
+                .Where(t => !t.IsInterface && t.BaseType != typeof(object))
+                .ToList()
+            ) {
+                builder.AppendLine($"{CommonGenerator.ResolveCustomName(type)}.SetParent({CommonGenerator.ResolveTypeName(type.BaseType)});");
+            }
+            WriteSection("$PARENTS", builder.ToString());
+        }
+
+        private void AddInterfaceImplementations() {
+            var builder = new StringBuilder();
+            foreach (var type in _assembly.DefinedTypes.ToList()) {
+                foreach (var @interface in type.GetInterfaces()) {
+                    builder.AppendLine(
+                        $"{CommonGenerator.ResolveCustomName(type)}.AddInterfaceImplementation({CommonGenerator.ResolveTypeName(@interface)});"
+                        );
+                }
+            }
+            WriteSection("$INTERFACES_IMPLEMENTATIONS", builder.ToString());
         }
 
         private void GenerateFields() {
@@ -116,7 +130,7 @@ namespace CodeGen.Generators
 
         private void GenerateMethodBodies() {
             var builder = new StringBuilder();
-            foreach (var type in _assembly.DefinedTypes.ToList()) {
+            foreach (var type in _assembly.DefinedTypes.Where(t => !t.IsInterface).ToList()) {
                 foreach (var method in type.GetMethods(BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static)) {
                     var code = new MethodBodyGenerator(method).Generate();
                     builder.AppendLine(
@@ -147,7 +161,7 @@ namespace CodeGen.Generators
 
         private void SerializeMethodBodies() {
             var builder = new StringBuilder();
-            foreach (var type in _assembly.DefinedTypes.ToList()) {
+            foreach (var type in _assembly.DefinedTypes.Where(t => !t.IsInterface).ToList()) {
                 foreach (var method in type.GetMethods(BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static)) {
                     var body = new SerializableMethodBodyGenerator(method).Generate();
                     var serialized = JsonSerializer.Serialize(body);
@@ -173,7 +187,10 @@ namespace CodeGen.Generators
 
         public void GenerateAssembly() {
             CreateResultFile();
-            GenerateTypes();
+            GenerateRootTypesDefinitions();
+            GenerateNestedTypesDefinitions();
+            SetParents();
+            AddInterfaceImplementations();
             GenerateFields();
             GenerateConstructorsDefinitions();
             GenerateConstructorsBodies();

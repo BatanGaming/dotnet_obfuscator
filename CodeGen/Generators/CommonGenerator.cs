@@ -4,7 +4,6 @@ using System.CodeDom.Compiler;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
-using System.Text.Json;
 using CodeGen.Extensions;
 
 namespace CodeGen.Generators
@@ -16,15 +15,7 @@ namespace CodeGen.Generators
         private static readonly Dictionary<MethodBase, string> _methodsDefinitionsBuildersNames = new Dictionary<MethodBase, string>();
         private static readonly Dictionary<MethodBase, string> _methodsBodiesBuildersNames = new Dictionary<MethodBase, string>();
 
-        private static readonly Lazy<Dictionary<string, string>> _templates =
-            new Lazy<Dictionary<string, string>>(InitTemplates);
-        
         private static int _duplicates = 0;
-        private static Dictionary<string, string> InitTemplates() {
-            using var reader = new StreamReader("templates.json");
-            var json = reader.ReadToEnd();
-            return JsonSerializer.Deserialize<Dictionary<string, string>>(json);
-        }
         public static string FixSpecialName(string name) {
             return name.Replace(".", "").Replace("<", "").Replace(">", "");
         }
@@ -60,7 +51,14 @@ namespace CodeGen.Generators
             var name = type.IsSpecialName()
                 ? FixSpecialName(type.Name)
                 : type.Name;
-            var resultName = $"type_{name}_builder";
+            var prefix = type.IsInterface
+                ? "interface"
+                : type.IsEnum
+                    ? "enum"
+                    : type.IsValueType
+                        ? "struct"
+                        : "class";
+            var resultName = $"{prefix}_{name}_builder";
             if (_typesBuildersNames.ContainsValue(resultName)) {
                 resultName += $"_{_duplicates++}";
             }
@@ -156,7 +154,9 @@ namespace CodeGen.Generators
         }
 
         public static Type CloseDelegateType(Type delegateType, Type[] genericTypes) {
-            return delegateType.MakeGenericType(genericTypes);
+            return delegateType.IsGenericTypeDefinition 
+                ? delegateType.MakeGenericType(genericTypes) 
+                : delegateType;
         }
     }
 }

@@ -1,22 +1,27 @@
+using System;
+using System.Linq;
 using System.Reflection;
 using System.Text;
 using CodeGen.Generators;
 
 namespace CodeGen.Templates
 {
-    public class SimpleClass : Template
+    public class CommonTypeDefinition : Template
     {
-        public string Template => "DefineType($typeName, $attributes, $baseTypeName)";
+        public string Template => "DefineType($typeName, $attributes)";
+        
+        public string TemplateForNested => "DefineNestedType($typeName, $attributes)";
 
         public string TypeName { get; set; }
         public TypeAttributes Attributes { get; set; }
-        public string BaseTypeName { get; set; }
-        
+
+        public bool IsNested { get; set; }
+
         public string Overwrite() {
-            var builder = new StringBuilder(Template);
+            var builder = new StringBuilder(IsNested ? TemplateForNested : Template);
             builder.Replace("$typeName", $@"""{TypeName}""");
             builder.Replace("$attributes", AttributesGenerator.Generate(Attributes));
-            builder.Replace("$baseTypeName", BaseTypeName);
+
             return builder.ToString();
         }
     }

@@ -1,21 +1,22 @@
 using System;
 using CodeGen.Templates;
 
-namespace CodeGen.Generators
+namespace CodeGen.Generators.TypesGenerators
 {
-    public class ClassGenerator
+    public class InterfaceGenerator : Generator
     {
         private readonly Type _type;
 
-        public ClassGenerator(Type type) {
+        public InterfaceGenerator(Type type) {
             _type = type;
         }
 
+
         public string Generate() {
-            return new SimpleClass {
+            return new CommonTypeDefinition {
                 TypeName = _type.FullName,
                 Attributes = _type.Attributes,
-                BaseTypeName = CommonGenerator.ResolveTypeName(_type.BaseType)
+                IsNested = _type.IsNested
             }.Overwrite();
         }
     }

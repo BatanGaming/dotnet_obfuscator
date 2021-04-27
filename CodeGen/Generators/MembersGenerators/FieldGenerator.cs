@@ -2,9 +2,9 @@ using System;
 using System.Linq;
 using System.Reflection;
 
-namespace CodeGen.Generators
+namespace CodeGen.Generators.MembersGenerators
 {
-    public class FieldGenerator
+    public class FieldGenerator : Generator
     {
         private readonly FieldInfo _field;
         

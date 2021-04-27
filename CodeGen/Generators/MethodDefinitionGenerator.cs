@@ -27,7 +27,7 @@ namespace CodeGen.Generators
         public string Generate() {
             var code = $@"DefineMethod(
                         ""{_method.Name}"",
-                        {string.Join(" | ", AttributesGenerator.Generate(_method))},
+                        {string.Join(" | ", AttributesGenerator.Generate(_method.Attributes))},
                         {CommonGenerator.ResolveTypeName(_method.ReturnType)},
                         {GetParameters()}
                         )";
