@@ -18,3 +18,4 @@ Task list
 - - [x] Interface inheritance
 - - [x] Interface inheritance with same method name
 - - [ ] Reflection
+- - [ ] Attributes
