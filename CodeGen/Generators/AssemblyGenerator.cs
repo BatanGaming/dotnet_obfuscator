@@ -7,6 +7,7 @@ using System.Text;
 using System.Text.Json;
 using CodeGen.Generators.MembersGenerators;
 using CodeGen.Generators.TypesGenerators;
+using CodeGen.Templates;
 
 namespace CodeGen.Generators
 {
@@ -42,7 +43,7 @@ namespace CodeGen.Generators
 
         private void GenerateRootTypesDefinitions() {
             var builder = new StringBuilder();
-            foreach (var type in _assembly.DefinedTypes.Where(t => !t.IsNested).ToList()) {
+            foreach (var type in _assembly.DefinedTypes.Where(t => !t.IsNested)) {
                 builder.AppendLine($"var {CommonGenerator.GenerateTypeGeneratorName(type)} = module_builder.{GenerateType(type)};");
             }
             WriteSection("$TYPES", builder.ToString());
@@ -50,7 +51,7 @@ namespace CodeGen.Generators
 
         private void GenerateNestedTypesDefinitions() {
             var builder = new StringBuilder();
-            foreach (var type in _assembly.DefinedTypes.Where(t => t.IsNested).ToList()) {
+            foreach (var type in _assembly.DefinedTypes.Where(t => t.IsNested)) {
                 builder.AppendLine($"var {CommonGenerator.GenerateTypeGeneratorName(type)} = {CommonGenerator.ResolveCustomName(type.DeclaringType)}.{GenerateType(type)};");
             }
             WriteSection("$NESTED_TYPES", builder.ToString());
@@ -60,7 +61,6 @@ namespace CodeGen.Generators
             var builder = new StringBuilder();
             foreach (var type in _assembly.DefinedTypes
                 .Where(t => !t.IsInterface && t.BaseType != typeof(object))
-                .ToList()
             ) {
                 builder.AppendLine($"{CommonGenerator.ResolveCustomName(type)}.SetParent({CommonGenerator.ResolveTypeName(type.BaseType)});");
             }
@@ -69,7 +69,7 @@ namespace CodeGen.Generators
 
         private void AddInterfaceImplementations() {
             var builder = new StringBuilder();
-            foreach (var type in _assembly.DefinedTypes.ToList()) {
+            foreach (var type in _assembly.DefinedTypes) {
                 foreach (var @interface in type.GetInterfaces()) {
                     builder.AppendLine(
                         $"{CommonGenerator.ResolveCustomName(type)}.AddInterfaceImplementation({CommonGenerator.ResolveTypeName(@interface)});"
@@ -81,7 +81,7 @@ namespace CodeGen.Generators
 
         private void GenerateFields() {
             var builder = new StringBuilder();
-            foreach (var type in _assembly.DefinedTypes.ToList()) {
+            foreach (var type in _assembly.DefinedTypes) {
                 foreach (var field in type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.DeclaredOnly).Where(f => f.DeclaringType == type)) {
                     var code = new FieldGenerator(field).Generate();
                     builder.AppendLine(
@@ -93,7 +93,7 @@ namespace CodeGen.Generators
 
         private void GenerateConstructorsDefinitions() {
             var builder = new StringBuilder();
-            foreach (var type in _assembly.DefinedTypes.ToList()) {
+            foreach (var type in _assembly.DefinedTypes) {
                 foreach (var constructor in type.GetConstructors(BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static)) {
                     var code = new ConstructorDefinitionGenerator(constructor).Generate();
                     builder.AppendLine(
@@ -105,7 +105,7 @@ namespace CodeGen.Generators
 
         private void GenerateConstructorsBodies() {
             var builder = new StringBuilder();
-            foreach (var type in _assembly.DefinedTypes.ToList()) {
+            foreach (var type in _assembly.DefinedTypes) {
                 foreach (var constructor in type.GetConstructors(BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static)) {
                     var code = new ConstructorBodyGenerator(constructor).Generate();
                     builder.AppendLine(
@@ -118,7 +118,7 @@ namespace CodeGen.Generators
         
         private void GenerateMethodsDefinitions() {
             var builder = new StringBuilder();
-            foreach (var type in _assembly.DefinedTypes.ToList()) {
+            foreach (var type in _assembly.DefinedTypes) {
                 foreach (var method in type.GetMethods(BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static)) {
                     var code = new MethodDefinitionGenerator(method).Generate();
                     builder.AppendLine(
@@ -128,9 +128,28 @@ namespace CodeGen.Generators
             WriteSection("$METHODS_DEFINITIONS", builder.ToString());
         }
 
+        private void AddOverriding() {
+            var builder = new StringBuilder();
+            foreach (var type in _assembly.DefinedTypes.Where(t => !t.IsInterface)) {
+                foreach (var map in type.GetInterfaces().Select(i => type.GetInterfaceMap(i))) {
+                    for (var i = 0; i < map.InterfaceMethods.Length; ++i) {
+                        var interfaceMethod = CommonGenerator.ResolveCustomName(map.InterfaceMethods[i])
+                                              ?? new GetMethod {
+                                                  Method = map.InterfaceMethods[i],
+                                                  Type = map.InterfaceType
+                                              }.Overwrite();
+                        builder.AppendLine(
+                            $"{CommonGenerator.ResolveCustomName(type)}.DefineMethodOverride({CommonGenerator.ResolveCustomName(map.TargetMethods[i])}, {interfaceMethod});"
+                        );
+                    }
+                }
+            }
+            WriteSection("$METHODS_OVERRIDING", builder.ToString());
+        }
+
         private void GenerateMethodBodies() {
             var builder = new StringBuilder();
-            foreach (var type in _assembly.DefinedTypes.Where(t => !t.IsInterface).ToList()) {
+            foreach (var type in _assembly.DefinedTypes.Where(t => !t.IsInterface)) {
                 foreach (var method in type.GetMethods(BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static)) {
                     var code = new MethodBodyGenerator(method).Generate();
                     builder.AppendLine(
@@ -144,7 +163,7 @@ namespace CodeGen.Generators
 
         private void CreateTypes() {
             var builder = new StringBuilder();
-            var types = _assembly.DefinedTypes.ToList();
+            var types = _assembly.DefinedTypes;
             foreach (var type in types) {
                 var generatorName = CommonGenerator.ResolveCustomName(type);
                 builder.AppendLine(
@@ -161,7 +180,7 @@ namespace CodeGen.Generators
 
         private void SerializeMethodBodies() {
             var builder = new StringBuilder();
-            foreach (var type in _assembly.DefinedTypes.Where(t => !t.IsInterface).ToList()) {
+            foreach (var type in _assembly.DefinedTypes.Where(t => !t.IsInterface)) {
                 foreach (var method in type.GetMethods(BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static)) {
                     var body = new SerializableMethodBodyGenerator(method).Generate();
                     var serialized = JsonSerializer.Serialize(body);
@@ -195,6 +214,7 @@ namespace CodeGen.Generators
             GenerateConstructorsDefinitions();
             GenerateConstructorsBodies();
             GenerateMethodsDefinitions();
+            AddOverriding();
             GenerateMethodBodies();
             SerializeMethodBodies();
             WriteReferencedAssemblies();

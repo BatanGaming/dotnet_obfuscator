@@ -41,7 +41,8 @@ namespace CodeGen.Generators
                 $@"var {fieldName} = {CommonGenerator.ResolveCustomName(_method.DeclaringType)}.DefineField(""{fieldName}"", {delegateTypeName}, {attributes});");
             if (_method.IsStatic) {
                 builder.AppendLine($"{ilGeneratorName}.Emit(OpCodes.Ldnull);");
-                builder.AppendLine(@$"{ilGeneratorName}.Emit(OpCodes.Call, typeof(Program).GetMethod(""GetMethod"", new [] {{typeof(object)}}));");
+                builder.AppendLine($@"{ilGeneratorName}.Emit(OpCodes.Ldstr, ""{_method.DeclaringType.FullName}#{_method.Name}"");");
+                builder.AppendLine(@$"{ilGeneratorName}.Emit(OpCodes.Call, typeof(Program).GetMethod(""GetMethod"", new [] {{typeof(object), typeof(string)}}));");
                 builder.AppendLine($"{ilGeneratorName}.Emit(OpCodes.Castclass, {delegateTypeName});");
                 builder.AppendLine($"{ilGeneratorName}.Emit(OpCodes.Stsfld, {fieldName});");
                 builder.AppendLine($"{ilGeneratorName}.Emit(OpCodes.Ldsfld, {fieldName});");
@@ -56,7 +57,8 @@ namespace CodeGen.Generators
             else {
                 builder.AppendLine($"{ilGeneratorName}.Emit(OpCodes.Ldarg_0);");
                 builder.AppendLine($"{ilGeneratorName}.Emit(OpCodes.Ldarg_0);");
-                builder.AppendLine(@$"{ilGeneratorName}.Emit(OpCodes.Call, typeof(Program).GetMethod(""GetMethod"", new [] {{typeof(object)}}));");
+                builder.AppendLine($@"{ilGeneratorName}.Emit(OpCodes.Ldstr, ""{_method.DeclaringType.FullName}#{_method.Name}"");");
+                builder.AppendLine(@$"{ilGeneratorName}.Emit(OpCodes.Call, typeof(Program).GetMethod(""GetMethod"", new [] {{typeof(object), typeof(string)}}));");
                 builder.AppendLine($"{ilGeneratorName}.Emit(OpCodes.Castclass, {delegateTypeName});");
                 builder.AppendLine($"{ilGeneratorName}.Emit(OpCodes.Stfld, {fieldName});");
                 builder.AppendLine($"{ilGeneratorName}.Emit(OpCodes.Ldarg_0);");

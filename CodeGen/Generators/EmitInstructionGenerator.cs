@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using CodeGen.Extensions;
+using CodeGen.Templates;
 using Parser;
 
 namespace CodeGen.Generators
@@ -107,9 +108,11 @@ namespace CodeGen.Generators
                         var specialName = method.Name.Split('_');
                         return $@"{CommonGenerator.ResolveTypeName(method.DeclaringType)}.GetProperty(""{specialName[1]}"").{specialName[0].Capitalize()}Method";
                     }
-                    var parameters = method.GetParameters();
-                    return $@"{CommonGenerator.ResolveTypeName(method.DeclaringType)}.{StringifyGetMethod(method)}
-                           {(parameters.Length == 0 ? "Type.EmptyTypes" : $@"new [] {{ {string.Join(',', StringifyMethodParameters(parameters))} }}")})";
+
+                    return new GetMethod {
+                        Method = method,
+                        Type = method.DeclaringType
+                    }.Overwrite();
                 }
                 default:
                     return operand?.ToString();

@@ -273,12 +273,11 @@ namespace ResultProject
             }
         }
         
-        public static Delegate GetMethod(object target) {
+        public static Delegate GetMethod(object target, string name) {
             var stackTrace = new StackTrace();
             var caller = stackTrace.GetFrame(1).GetMethod();
-            var name = $"{caller.DeclaringType.FullName}#{caller.Name}";
             var callerMethodInfo = GetMethodByName(
-                name, 
+                name,
                 caller
                     .GetParameters()
                     .Select(p => p.ParameterType.FullName)
@@ -311,6 +310,8 @@ namespace ResultProject
                 
             
             $METHODS_DEFINITIONS
+                
+            $METHODS_OVERRIDING
                 
             
             $METHODS_BODIES
