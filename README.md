@@ -2,7 +2,7 @@ Task list
 - Types
 - - [x] Classes
 - - [x] Structs
-- - [ ] Enums
+- - [x] Enums
 - - [ ] Generic classes
 - - [ ] Anonymous types
 - Members

@@ -297,12 +297,13 @@ namespace ResultProject
                 
             $NESTED_TYPES
                 
-            $PARENTS    
-                
+            $PARENTS
+
             $INTERFACES_IMPLEMENTATIONS
                 
             $FIELDS
                 
+            $ENUM_CONSTANTS
                 
             $CONSTRUCTORS_DEFINITIONS
                 

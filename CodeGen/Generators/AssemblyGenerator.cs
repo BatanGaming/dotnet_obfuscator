@@ -29,22 +29,10 @@ namespace CodeGen.Generators
             File.WriteAllText(ResultFile, newText);
         }
 
-        private static string GenerateType(Type type) {
-            Generator generator = null;
-            if (type.IsClass || (type.IsValueType && !type.IsEnum)) {
-                generator = new ClassGenerator(type);
-            }
-            else if (type.IsInterface) {
-                generator = new InterfaceGenerator(type);
-            }
-
-            return generator?.Generate();
-        }
-
         private void GenerateRootTypesDefinitions() {
             var builder = new StringBuilder();
             foreach (var type in _assembly.DefinedTypes.Where(t => !t.IsNested)) {
-                builder.AppendLine($"var {CommonGenerator.GenerateTypeGeneratorName(type)} = module_builder.{GenerateType(type)};");
+                builder.AppendLine($"var {CommonGenerator.GenerateTypeGeneratorName(type)} = module_builder.{new ClassGenerator(type).Generate()};");
             }
             WriteSection("$TYPES", builder.ToString());
         }
@@ -52,7 +40,7 @@ namespace CodeGen.Generators
         private void GenerateNestedTypesDefinitions() {
             var builder = new StringBuilder();
             foreach (var type in _assembly.DefinedTypes.Where(t => t.IsNested)) {
-                builder.AppendLine($"var {CommonGenerator.GenerateTypeGeneratorName(type)} = {CommonGenerator.ResolveCustomName(type.DeclaringType)}.{GenerateType(type)};");
+                builder.AppendLine($"var {CommonGenerator.GenerateTypeGeneratorName(type)} = {CommonGenerator.ResolveCustomName(type.DeclaringType)}.{new ClassGenerator(type).Generate()};");
             }
             WriteSection("$NESTED_TYPES", builder.ToString());
         }
@@ -66,10 +54,25 @@ namespace CodeGen.Generators
             }
             WriteSection("$PARENTS", builder.ToString());
         }
+        
+        private void GenerateEnumConstants() {
+            var builder = new StringBuilder();
+            foreach (var type in _assembly.DefinedTypes.Where(t => t.IsEnum)) {
+                var underlyingTypeCast = $"({Enum.GetUnderlyingType(type).FullName})";
+                foreach (var field in type
+                    .GetFields()
+                    .Where(f => f.Name != "value__")
+                ) {
+                    var value = field.GetRawConstantValue().ToString();
+                    builder.AppendLine($"{CommonGenerator.ResolveCustomName(field)}.SetConstant({underlyingTypeCast}{value});");
+                }
+            }
+            WriteSection("$ENUM_CONSTANTS", builder.ToString());
+        }
 
         private void AddInterfaceImplementations() {
             var builder = new StringBuilder();
-            foreach (var type in _assembly.DefinedTypes) {
+            foreach (var type in _assembly.DefinedTypes.Where(t => !t.IsEnum)) {
                 foreach (var @interface in type.GetInterfaces()) {
                     builder.AppendLine(
                         $"{CommonGenerator.ResolveCustomName(type)}.AddInterfaceImplementation({CommonGenerator.ResolveTypeName(@interface)});"
@@ -130,7 +133,7 @@ namespace CodeGen.Generators
 
         private void AddOverriding() {
             var builder = new StringBuilder();
-            foreach (var type in _assembly.DefinedTypes.Where(t => !t.IsInterface)) {
+            foreach (var type in _assembly.DefinedTypes.Where(t => !t.IsInterface && !t.IsEnum)) {
                 foreach (var map in type.GetInterfaces().Select(i => type.GetInterfaceMap(i))) {
                     for (var i = 0; i < map.InterfaceMethods.Length; ++i) {
                         var interfaceMethod = CommonGenerator.ResolveCustomName(map.InterfaceMethods[i])
@@ -163,11 +166,10 @@ namespace CodeGen.Generators
 
         private void CreateTypes() {
             var builder = new StringBuilder();
-            var types = _assembly.DefinedTypes;
-            foreach (var type in types) {
+            foreach (var type in _assembly.DefinedTypes) {
                 var generatorName = CommonGenerator.ResolveCustomName(type);
                 builder.AppendLine(
-                    $"var {generatorName.Replace("_builder", "")} = {generatorName}.CreateType();");
+                    $"var {generatorName.Replace("_builder", "")} = {generatorName}.{(type.IsEnum && !type.IsNested ? "CreateTypeInfo()" : "CreateType()")};");
             }
 
             if (_assembly.EntryPoint != null) {
@@ -211,6 +213,7 @@ namespace CodeGen.Generators
             SetParents();
             AddInterfaceImplementations();
             GenerateFields();
+            GenerateEnumConstants();
             GenerateConstructorsDefinitions();
             GenerateConstructorsBodies();
             GenerateMethodsDefinitions();
