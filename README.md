@@ -15,5 +15,6 @@ Task list
 - - [x] Lambdas
 - - [x] Instanciate generic methods
 - - [x] Instanciate generic classes
-- - [ ] Interface inheritance
+- - [x] Interface inheritance
+- - [x] Interface inheritance with same method name
 - - [ ] Reflection
