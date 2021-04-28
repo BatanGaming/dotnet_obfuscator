@@ -31,7 +31,7 @@ namespace CodeGen.Generators
 
         private static string GenerateType(Type type) {
             Generator generator = null;
-            if (type.IsClass) {
+            if (type.IsClass || (type.IsValueType && !type.IsEnum)) {
                 generator = new ClassGenerator(type);
             }
             else if (type.IsInterface) {

@@ -1,7 +1,7 @@
 Task list
 - Types
 - - [x] Classes
-- - [ ] Structs
+- - [x] Structs
 - - [ ] Enums
 - - [ ] Generic classes
 - - [ ] Anonymous types

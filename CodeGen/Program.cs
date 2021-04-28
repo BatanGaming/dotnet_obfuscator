@@ -83,7 +83,7 @@ namespace ResultProject
         private static MethodBase GetMethodByName(string name, IReadOnlyCollection<string> parametersNames) {
             var index = name.LastIndexOf('#');
             var methodName = name.Substring(index + 1);
-            var cachedName = $"{methodName}({string.Join(',', parametersNames)})";
+            var cachedName = $"{name}({string.Join(',', parametersNames)})";
             if (_cachedMethods.TryGetValue(cachedName, out var method)) {
                 return method;
             }

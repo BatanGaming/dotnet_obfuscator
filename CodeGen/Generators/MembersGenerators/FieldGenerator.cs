@@ -16,7 +16,7 @@ namespace CodeGen.Generators.MembersGenerators
             var code = $@"DefineField(
                         ""{_field.Name}"", 
                         {CommonGenerator.ResolveTypeName(_field.FieldType)},
-                        {AttributesGenerator.Generate(_field)}
+                        {AttributesGenerator.Generate(_field.Attributes)}
                         )";
             return code;
         }
