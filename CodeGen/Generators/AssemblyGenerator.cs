@@ -54,6 +54,40 @@ namespace CodeGen.Generators
             }
             WriteSection("$PARENTS", builder.ToString());
         }
+
+        private void SetGenericConstraints() {
+            var builder = new StringBuilder();
+            foreach (var type in _assembly.DefinedTypes.Where(t => t.IsGenericTypeDefinition)) {
+                var arguments = type.GetGenericArguments().Where(a => a.IsGenericParameter).ToList();
+                var argumentsName = arguments.Select(a => $@"""{a.Name}""");
+                var typeName = CommonGenerator.ResolveCustomName(type);
+                var arrayName = $"{typeName}_generic_parameters";
+                builder.AppendLine(
+                    $"var {arrayName} = {typeName}.DefineGenericParameters({string.Join(',', argumentsName)});");
+                for (var i = 0; i < arguments.Count; ++i) {
+                    if (arguments[i].GenericParameterAttributes != GenericParameterAttributes.None) {
+                        builder.AppendLine(
+                            $"{arrayName}[{i}].SetGenericParameterAttributes({AttributesGenerator.Generate(arguments[i].GenericParameterAttributes)});");
+                    }
+
+                    var constraintTypes = arguments[i].GetGenericParameterConstraints();
+                    if (constraintTypes.Length != 0) {
+                        if (constraintTypes.Any(t => t.IsInterface)) {
+                            builder.AppendLine(
+                                $"{arrayName}[{i}].SetInterfaceConstraints({string.Join(',', constraintTypes.Where(t => t.IsInterface).Select(CommonGenerator.ResolveTypeName))});"
+                                );
+                        }
+
+                        if (constraintTypes.Any(t => t.IsClass)) {
+                            var baseType = constraintTypes.FirstOrDefault(t => t.IsClass);
+                            builder.AppendLine(
+                                $"{arrayName}[{i}].SetBaseTypeConstraint({CommonGenerator.ResolveTypeName(baseType)});"
+                            );
+                        }
+                    }
+                }
+            }
+        }
         
         private void GenerateEnumConstants() {
             var builder = new StringBuilder();
@@ -211,6 +245,7 @@ namespace CodeGen.Generators
             GenerateRootTypesDefinitions();
             GenerateNestedTypesDefinitions();
             SetParents();
+            SetGenericConstraints();
             AddInterfaceImplementations();
             GenerateFields();
             GenerateEnumConstants();
