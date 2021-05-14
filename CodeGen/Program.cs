@@ -299,6 +299,8 @@ namespace ResultProject
                 
             $PARENTS
 
+            $GENERIC_CONSTRAINTS
+
             $INTERFACES_IMPLEMENTATIONS
                 
             $FIELDS
