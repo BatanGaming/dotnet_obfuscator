@@ -65,28 +65,31 @@ namespace CodeGen.Generators
                 builder.AppendLine(
                     $"var {arrayName} = {typeName}.DefineGenericParameters({string.Join(',', argumentsName)});");
                 for (var i = 0; i < arguments.Count; ++i) {
+                    var genericArgumentName = CommonGenerator.GenerateTypeGeneratorName(arguments[i]);
+                    builder.AppendLine($"var {genericArgumentName} = {arrayName}[{i}]");
                     if (arguments[i].GenericParameterAttributes != GenericParameterAttributes.None) {
                         builder.AppendLine(
-                            $"{arrayName}[{i}].SetGenericParameterAttributes({AttributesGenerator.Generate(arguments[i].GenericParameterAttributes)});");
+                            $"{genericArgumentName}.SetGenericParameterAttributes({AttributesGenerator.Generate(arguments[i].GenericParameterAttributes)});");
                     }
 
                     var constraintTypes = arguments[i].GetGenericParameterConstraints();
                     if (constraintTypes.Length != 0) {
                         if (constraintTypes.Any(t => t.IsInterface)) {
                             builder.AppendLine(
-                                $"{arrayName}[{i}].SetInterfaceConstraints({string.Join(',', constraintTypes.Where(t => t.IsInterface).Select(CommonGenerator.ResolveTypeName))});"
+                                $"{genericArgumentName}.SetInterfaceConstraints({string.Join(',', constraintTypes.Where(t => t.IsInterface).Select(CommonGenerator.ResolveTypeName))});"
                                 );
                         }
 
                         if (constraintTypes.Any(t => t.IsClass)) {
                             var baseType = constraintTypes.FirstOrDefault(t => t.IsClass);
                             builder.AppendLine(
-                                $"{arrayName}[{i}].SetBaseTypeConstraint({CommonGenerator.ResolveTypeName(baseType)});"
+                                $"{genericArgumentName}.SetBaseTypeConstraint({CommonGenerator.ResolveTypeName(baseType)});"
                             );
                         }
                     }
                 }
             }
+            WriteSection("$GENERIC_CONSTRAINTS", builder.ToString());
         }
         
         private void GenerateEnumConstants() {
