@@ -3,6 +3,7 @@ using System.CodeDom;
 using System.CodeDom.Compiler;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using CodeGen.Extensions;
 
@@ -16,8 +17,10 @@ namespace CodeGen.Generators
         private static readonly Dictionary<MethodBase, string> _methodsBodiesBuildersNames = new Dictionary<MethodBase, string>();
 
         private static int _duplicates = 0;
+        private static readonly char[] _specialCharacters = {'.', '<', '>', '`'};
+        
         public static string FixSpecialName(string name) {
-            return name.Replace(".", "").Replace("<", "").Replace(">", "");
+            return _specialCharacters.Aggregate(name, (current, character) => current.Replace(character.ToString(), ""));
         }
 
         public static string ResolveTypeName(Type type) {
@@ -48,7 +51,7 @@ namespace CodeGen.Generators
         }
         
         public static string GenerateTypeGeneratorName(Type type) {
-            var name = type.IsSpecialName()
+            var name = type.IsSpecialName(_specialCharacters)
                 ? FixSpecialName(type.Name)
                 : type.Name;
             var prefix = type.IsInterface
@@ -67,10 +70,10 @@ namespace CodeGen.Generators
         }
 
         public static string GenerateFieldGeneratorName(FieldInfo field) {
-            var name = field.IsSpecialName()
+            var name = field.IsSpecialName(_specialCharacters)
                 ? FixSpecialName(field.Name)
                 : field.Name;
-            var declaringTypeName = field.DeclaringType.IsSpecialName()
+            var declaringTypeName = field.DeclaringType.IsSpecialName(_specialCharacters)
                 ? FixSpecialName(field.DeclaringType.Name)
                 : field.DeclaringType.Name;
             var resultName = $"type_{declaringTypeName}_field_{name}_builder";
@@ -82,10 +85,10 @@ namespace CodeGen.Generators
         }
 
         public static string GenerateMethodDefinitionGeneratorName(MethodBase method) {
-            var name = method.IsSpecialName()
+            var name = method.IsSpecialName(_specialCharacters)
                 ? FixSpecialName(method.Name)
                 : method.Name;
-            var declaringTypeName = method.DeclaringType.IsSpecialName()
+            var declaringTypeName = method.DeclaringType.IsSpecialName(_specialCharacters)
                 ? FixSpecialName(method.DeclaringType.Name)
                 : method.DeclaringType.Name;
             var resultName = $"type_{declaringTypeName}_method_{name}_builder";
@@ -98,10 +101,10 @@ namespace CodeGen.Generators
         }
 
         public static string GenerateMethodBodyGeneratorName(MethodBase method) {
-            var name = method.IsSpecialName()
+            var name = method.IsSpecialName(_specialCharacters)
                 ? FixSpecialName(method.Name)
                 : method.Name;
-            var declaringTypeName = method.DeclaringType.IsSpecialName()
+            var declaringTypeName = method.DeclaringType.IsSpecialName(_specialCharacters)
                 ? FixSpecialName(method.DeclaringType.Name)
                 : method.DeclaringType.Name;
             var resultName = $"type_{declaringTypeName}_il_method_{name}_builder";

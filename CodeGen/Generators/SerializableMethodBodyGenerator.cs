@@ -109,7 +109,11 @@ namespace CodeGen.Generators
                 Instructions = instructions.ToList(),
                 IlCode = methodBody.GetILAsByteArray(),
                 MaxStackSize = methodBody.MaxStackSize,
-                LocalVariables = methodBody.LocalVariables.Select(l => new SerializableLocalVariableInfo{IsPinned = l.IsPinned, TypeName = l.LocalType.FullName}).ToList()
+                LocalVariables = methodBody.LocalVariables.Select(l => 
+                    new SerializableLocalVariableInfo {
+                        IsPinned = l.IsPinned, 
+                        TypeName = l.LocalType.FullName
+                    }).ToList()
             };
         }
     }

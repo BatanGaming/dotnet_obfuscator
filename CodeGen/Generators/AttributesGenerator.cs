@@ -7,7 +7,7 @@ namespace CodeGen.Generators
         public static string Generate(object attributes) {
             return string.Join(" | ", 
                 from attribute in attributes.ToString().Split(',')
-                select $"{attributes.GetType().FullName}.{attribute.Trim()}"
+                select $"{attributes.GetType()}.{attribute.Trim()}"
             );
         }
     }

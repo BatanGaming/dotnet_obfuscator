@@ -1,4 +1,5 @@
 using System;
+using System.Reflection;
 using CodeGen.Templates;
 
 namespace CodeGen.Generators.TypesGenerators

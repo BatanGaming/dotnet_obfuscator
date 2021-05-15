@@ -5,17 +5,15 @@ namespace CodeGen.Extensions
 {
     public static class SpecialNameExtensions
     {
-        private static readonly char[] SpecialCharacters = {'.', '<', '>'};
-        
-        public static bool IsSpecialName(this Type type) {
+        public static bool IsSpecialName(this Type type, char[] SpecialCharacters) {
             return type.IsSpecialName || type.Name.IndexOfAny(SpecialCharacters) != -1;
         }
         
-        public static bool IsSpecialName(this FieldInfo field) {
+        public static bool IsSpecialName(this FieldInfo field, char[] SpecialCharacters) {
             return field.IsSpecialName || field.Name.IndexOfAny(SpecialCharacters) != -1;
         }
         
-        public static bool IsSpecialName(this MethodBase method) {
+        public static bool IsSpecialName(this MethodBase method, char[] SpecialCharacters) {
             return method.IsSpecialName || method.Name.IndexOfAny(SpecialCharacters) != -1;
         }
     }

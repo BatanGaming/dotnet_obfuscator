@@ -92,9 +92,13 @@ namespace ResultProject
             var parametersTypes = parametersNames.Count != 0
                 ? (from parameter in parametersNames select GetTypeByName(parameter)).ToArray()
                 : Type.EmptyTypes;
-            method = methodName == ".ctor" || methodName == ".cctor"
-                ? (MethodBase)type.GetConstructor(BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance | BindingFlags.NonPublic, null, parametersTypes, null)
-                : type.GetMethod(methodName, BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance | BindingFlags.NonPublic, null, parametersTypes, null);
+            if (methodName.Contains("ctor")) {
+                var bindingFlags = BindingFlags.Public | BindingFlags.NonPublic | (methodName == ".ctor" ? BindingFlags.Instance : BindingFlags.Static);
+                method = type.GetConstructor(bindingFlags, null, parametersTypes, null);
+            }
+            else {
+                method = type.GetMethod(methodName, BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance | BindingFlags.NonPublic, null, parametersTypes, null);
+            }
             _cachedMethods[cachedName] = method;
             return method;
         }
