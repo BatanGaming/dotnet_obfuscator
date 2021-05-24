@@ -3,7 +3,7 @@ Task list
 - - [x] Classes
 - - [x] Structs
 - - [x] Enums
-- - [ ] Generic classes
+- - [x] Generic classes
 - - [ ] Anonymous types
 - Members
 - - [x] Fields
