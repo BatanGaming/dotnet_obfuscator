@@ -13,6 +13,7 @@ namespace CodeGen.Generators
     {
         private readonly Instruction _instruction;
         private readonly Module _module;
+        private readonly Type[] _genericArguments;
         
         private static string FixOpCodeName(string name) {
             if (name == "constrained.") {
@@ -54,11 +55,11 @@ namespace CodeGen.Generators
             var token = _instruction.OperandToken!.Value;
             return _instruction.OpCode.OperandType switch
             {
-                OperandType.InlineMethod => _module.ResolveMethod(token),
-                OperandType.InlineField => _module.ResolveField(token),
+                OperandType.InlineMethod => _module.ResolveMethod(token, _genericArguments, null),
+                OperandType.InlineField => _module.ResolveField(token, _genericArguments, null),
                 OperandType.InlineSig => _module.ResolveSignature(token),
                 OperandType.InlineString => _module.ResolveString(token),
-                OperandType.InlineType => _module.ResolveType(token),
+                OperandType.InlineType => _module.ResolveType(token, _genericArguments, null),
                 OperandType.InlineTok => SafeResolveToken(token),
                 var x when
                     x == OperandType.ShortInlineI ||
@@ -119,9 +120,10 @@ namespace CodeGen.Generators
             }
         }
 
-        public EmitInstructionGenerator(Instruction instruction, Module module) {
+        public EmitInstructionGenerator(Instruction instruction, Module module, Type[] genericArguments) {
             _instruction = instruction;
             _module = module;
+            _genericArguments = genericArguments;
         }
 
         public string Generate(Dictionary<long, string> labels) {

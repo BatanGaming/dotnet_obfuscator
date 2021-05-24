@@ -8,7 +8,7 @@ namespace CodeGen.Templates
 {
     public class GetMethod : Template
     {
-        public string Template { get; } = @"$type.GetMethod(""$methodName"", $parameters)";
+        public string Template { get; } = @"$type.GetMethod(""$methodName"", $parameters)$generic";
         public string TemplateForConstructor { get; } = @"$type.GetConstructor($parameters)";
         
         public MethodBase Method { get; set; }
@@ -27,6 +27,14 @@ namespace CodeGen.Templates
             else {
                 var strParameters = string.Join(',',parameters.Select(t => CommonGenerator.ResolveTypeName(t.ParameterType)));
                 builder.Replace("$parameters", $"new [] {{{strParameters}}}");
+            }
+
+            if (Method.IsGenericMethod) {
+                var arguments = string.Join(',', Method.GetGenericArguments().Select(CommonGenerator.ResolveTypeName));
+                builder.Replace("$generic", $".MakeGenericMethod({arguments})");
+            }
+            else {
+                builder.Replace("$generic", "");
             }
 
             return builder.ToString();

@@ -47,7 +47,8 @@ namespace CodeGen.Generators
                     builder.AppendLine($@"{ilGeneratorName}.MarkLabel({labels[instruction.Offset]});");
                 }
 
-                var code = new EmitInstructionGenerator(instruction, _constructor.Module).Generate(labels);
+                var genericArguments = _constructor.DeclaringType.GetGenericArguments();
+                var code = new EmitInstructionGenerator(instruction, _constructor.Module, genericArguments).Generate(labels);
                 builder.AppendLine($@"{ilGeneratorName}.{code};");
             }
 
