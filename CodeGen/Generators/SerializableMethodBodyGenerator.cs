@@ -68,7 +68,7 @@ namespace CodeGen.Generators
 
         private static string ResolveObjectName(object obj) {
             return obj switch {
-                Type type => type.FullName,
+                Type type => type.FullName ?? type.Name,
                 string str => str,
                 FieldInfo field => $"{field.DeclaringType.FullName}#{field.Name}",
                 MethodInfo method => $"{method.DeclaringType.FullName}#{method.Name}",
@@ -112,7 +112,7 @@ namespace CodeGen.Generators
                 LocalVariables = methodBody.LocalVariables.Select(l => 
                     new SerializableLocalVariableInfo {
                         IsPinned = l.IsPinned, 
-                        TypeName = l.LocalType.FullName
+                        TypeName = l.LocalType.FullName ?? l.LocalType.Name
                     }).ToList()
             };
         }

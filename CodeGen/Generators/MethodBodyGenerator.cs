@@ -1,5 +1,6 @@
 using System.Linq;
 using System.Reflection;
+using System.Reflection.Emit;
 using System.Text;
 
 namespace CodeGen.Generators
@@ -32,46 +33,50 @@ namespace CodeGen.Generators
 
             var ilGeneratorName = CommonGenerator.GenerateMethodBodyGeneratorName(_method);
             var builder = new StringBuilder();
-            var fieldName = $"type_{CommonGenerator.FixSpecialName(_method.DeclaringType.Name)}_{CommonGenerator.FixSpecialName(_method.Name)}_field";
-            var attributes = $"FieldAttributes.Private {(_method.IsStatic ? "| FieldAttributes.Static" : "")}";
             var delegateTypeName = $"delegate_type_{CommonGenerator.FixSpecialName(_method.DeclaringType.Name)}_{CommonGenerator.FixSpecialName(_method.Name)}_{_method.ReturnType.Name}";
-            builder.AppendLine(
-                $"var {delegateTypeName} = typeof({genericTypeName}){(makeGenericString != null ? $".{makeGenericString}" : "")};");
-            builder.AppendLine(
-                $@"var {fieldName} = {CommonGenerator.ResolveCustomName(_method.DeclaringType)}.DefineField(""{fieldName}"", {delegateTypeName}, {attributes});");
-            if (_method.IsStatic) {
-                builder.AppendLine($"{ilGeneratorName}.Emit(OpCodes.Ldnull);");
-                builder.AppendLine($@"{ilGeneratorName}.Emit(OpCodes.Ldstr, ""{_method.DeclaringType.FullName}#{_method.Name}"");");
-                builder.AppendLine(@$"{ilGeneratorName}.Emit(OpCodes.Call, typeof(Program).GetMethod(""GetMethod"", new [] {{typeof(object), typeof(string)}}));");
-                builder.AppendLine($"{ilGeneratorName}.Emit(OpCodes.Castclass, {delegateTypeName});");
-                builder.AppendLine($"{ilGeneratorName}.Emit(OpCodes.Stsfld, {fieldName});");
-                builder.AppendLine($"{ilGeneratorName}.Emit(OpCodes.Ldsfld, {fieldName});");
-                for (var i = 0; i < parameters.Count; ++i) {
-                    builder.AppendLine($"{ilGeneratorName}.Emit(OpCodes.Ldarg, {i});");
+            var closedDelegateTypeName = delegateTypeName;
+            builder.AppendLine($"var {delegateTypeName} = typeof({genericTypeName});");
+            if (makeGenericString != null) {
+                closedDelegateTypeName += "_closed";
+                builder.AppendLine($"var {closedDelegateTypeName} = {delegateTypeName}.{makeGenericString};");
+            }
+            
+            builder.AppendLine($@"{ilGeneratorName}.Emit(OpCodes.Call, typeof(MethodBase).GetMethod(""GetCurrentMethod"", Type.EmptyTypes));");
+            if (_method.IsGenericMethodDefinition || _method.DeclaringType.IsGenericTypeDefinition) {
+                builder.AppendLine(
+                    $@"{ilGeneratorName}.Emit(OpCodes.Newobj, typeof(Dictionary<string, Type>).GetConstructor(Type.EmptyTypes));");
+                
+                foreach (var genericParameter in _method.GetGenericArguments().Concat(_method.DeclaringType.GetGenericArguments())) {
+                    builder.AppendLine($@"{ilGeneratorName}.Emit(OpCodes.Dup);");
+                    builder.AppendLine($@"{ilGeneratorName}.Emit(OpCodes.Ldstr, ""{genericParameter.Name}"");");
+                    builder.AppendLine($@"{ilGeneratorName}.Emit(OpCodes.Ldtoken, {CommonGenerator.ResolveCustomName(genericParameter)});");
+                    builder.AppendLine(
+                        $@"{ilGeneratorName}.Emit(OpCodes.Call, typeof(Type).GetMethod(""GetTypeFromHandle"", new [] {{ typeof(RuntimeTypeHandle) }}));");
+                    builder.AppendLine(
+                        $@"{ilGeneratorName}.Emit(OpCodes.Callvirt, typeof(Dictionary<string, Type>).GetMethod(""Add""));");
                 }
-                builder.AppendLine($@"{ilGeneratorName}.Emit(OpCodes.Callvirt, {delegateTypeName}.GetMethod(""Invoke""));");
-                builder.AppendLine($"{ilGeneratorName}.Emit(OpCodes.Ldnull);");
-                builder.AppendLine($"{ilGeneratorName}.Emit(OpCodes.Stsfld, {fieldName});");
-                builder.AppendLine($"{ilGeneratorName}.Emit(OpCodes.Ret);");
             }
             else {
-                builder.AppendLine($"{ilGeneratorName}.Emit(OpCodes.Ldarg_0);");
-                builder.AppendLine($"{ilGeneratorName}.Emit(OpCodes.Ldarg_0);");
-                builder.AppendLine($@"{ilGeneratorName}.Emit(OpCodes.Ldstr, ""{_method.DeclaringType.FullName}#{_method.Name}"");");
-                builder.AppendLine(@$"{ilGeneratorName}.Emit(OpCodes.Call, typeof(Program).GetMethod(""GetMethod"", new [] {{typeof(object), typeof(string)}}));");
-                builder.AppendLine($"{ilGeneratorName}.Emit(OpCodes.Castclass, {delegateTypeName});");
-                builder.AppendLine($"{ilGeneratorName}.Emit(OpCodes.Stfld, {fieldName});");
-                builder.AppendLine($"{ilGeneratorName}.Emit(OpCodes.Ldarg_0);");
-                builder.AppendLine($"{ilGeneratorName}.Emit(OpCodes.Ldfld, {fieldName});");
-                for (var i = 1; i <= parameters.Count; ++i) {
-                    builder.AppendLine($"{ilGeneratorName}.Emit(OpCodes.Ldarg, {i});");
-                }
-                builder.AppendLine($@"{ilGeneratorName}.Emit(OpCodes.Callvirt, {delegateTypeName}.GetMethod(""Invoke""));");
-                builder.AppendLine($"{ilGeneratorName}.Emit(OpCodes.Ldarg_0);");
                 builder.AppendLine($"{ilGeneratorName}.Emit(OpCodes.Ldnull);");
-                builder.AppendLine($"{ilGeneratorName}.Emit(OpCodes.Stfld, {fieldName});");
-                builder.AppendLine($"{ilGeneratorName}.Emit(OpCodes.Ret);");
             }
+            builder.AppendLine(_method.IsStatic
+                ? $"{ilGeneratorName}.Emit(OpCodes.Ldnull);"
+                : $"{ilGeneratorName}.Emit(OpCodes.Ldarg_0);"
+            );
+            builder.AppendLine(@$"{ilGeneratorName}.Emit(OpCodes.Call, typeof(Program).GetMethod(""GetMethod"", new [] {{typeof(MethodInfo), typeof(Dictionary<string, Type>), typeof(object)}}));");
+
+            builder.AppendLine($"{ilGeneratorName}.Emit(OpCodes.Castclass, {closedDelegateTypeName});");
+            for (var i = 0; i < parameters.Count; ++i) {
+                builder.AppendLine($"{ilGeneratorName}.Emit(OpCodes.Ldarg, {i});");
+            }
+
+            if (delegateType.GenericTypeArguments.Any(t => t.IsGenericParameter)) {
+                builder.AppendLine($@"{ilGeneratorName}.Emit(OpCodes.Callvirt, TypeBuilder.GetMethod({closedDelegateTypeName}, {delegateTypeName}.GetMethod(""Invoke"")));");
+            }
+            else {
+                builder.AppendLine($@"{ilGeneratorName}.Emit(OpCodes.Callvirt, {closedDelegateTypeName}.GetMethod(""Invoke""));");
+            }
+            builder.AppendLine($"{ilGeneratorName}.Emit(OpCodes.Ret);");
 
             return builder.ToString();
 
