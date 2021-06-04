@@ -26,6 +26,7 @@ namespace ResultProject
             public string OperandName { get; set; }
             public string[] ParametersTypesNames { get; set; }
             public string[] GenericTypesNames { get; set; }
+            public string[] DeclaringTypeGenericTypesNames { get; set; }
         }
         
         [Serializable]
@@ -43,6 +44,7 @@ namespace ResultProject
         {
             public string TypeName { get; set; }
             public bool IsPinned { get; set; }
+            public string[] GenericTypesNames { get; set; }
         }
         
         [Serializable]
@@ -61,36 +63,31 @@ namespace ResultProject
         private static readonly List<string> _referencedAssemblies = new List<string> {
             $REFERENCED_ASSEMBLIES
         };
-        private static readonly Dictionary<string, Type> _cachedTypes = new Dictionary<string, Type>();
-        private static readonly Dictionary<string, MethodBase> _cachedMethods = new Dictionary<string, MethodBase>();
-
+        
         private static Type GetTypeByName(string name) {
-            if (_cachedTypes.TryGetValue(name, out var type)) {
-                return type;
-            }
             var assemblies = AppDomain.CurrentDomain.GetAssemblies();
             foreach (var assembly in assemblies) {
                 var foundedType = assembly.GetType(name);
                 if (foundedType != null) {
-                    _cachedTypes[name] = foundedType;
                     return foundedType;
                 }
             }
             return null;
         }
 
-        private static MethodBase GetMethodByName(string name, IReadOnlyCollection<string> parametersNames) {
+        private static MethodBase GetMethodByName(string name, IReadOnlyCollection<string> parametersNames, IReadOnlyDictionary<string, Type> genericTypes, IEnumerable<string> genericArguments) {
             var index = name.LastIndexOf('#');
             var methodName = name.Substring(index + 1);
             var cachedName = $"{name}({string.Join(',', parametersNames)})";
-            if (_cachedMethods.TryGetValue(cachedName, out var method)) {
-                return method;
-            }
             var typeName = name.Remove(index);
             var type = GetTypeByName(typeName);
+            if (type.IsGenericTypeDefinition) {
+                type = type.MakeGenericType(genericArguments.Select(a => genericTypes[a]).ToArray());
+            }
             var parametersTypes = parametersNames.Count != 0
                 ? (from parameter in parametersNames select GetTypeByName(parameter)).ToArray()
                 : Type.EmptyTypes;
+            MethodBase method;
             if (methodName.Contains("ctor")) {
                 var bindingFlags = BindingFlags.Public | BindingFlags.NonPublic | (methodName == ".ctor" ? BindingFlags.Instance : BindingFlags.Static);
                 method = type.GetConstructor(bindingFlags, null, parametersTypes, null);
@@ -98,7 +95,6 @@ namespace ResultProject
             else {
                 method = type.GetMethod(methodName, BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance | BindingFlags.NonPublic, null, parametersTypes, null);
             }
-            _cachedMethods[cachedName] = method;
             return method;
         }
         
@@ -131,13 +127,13 @@ namespace ResultProject
                 select exactMethod).FirstOrDefault();
         }
 
-        private static FieldInfo GetFieldByName(string name, IReadOnlyDictionary<string, Type> genericTypes) {
+        private static FieldInfo GetFieldByName(string name, IReadOnlyDictionary<string, Type> genericTypes, IEnumerable<string> genericArguments) {
             var index = name.LastIndexOf('#');
             var fieldName = name.Substring(index + 1);
             var typeName = name.Remove(index);
             var type = GetTypeByName(typeName);
             if (type.IsGenericTypeDefinition) {
-                type = type.MakeGenericType(type.GetGenericArguments().Select(t => genericTypes[t.Name]).ToArray());
+                type = type.MakeGenericType(genericArguments.Select(t => genericTypes[t]).ToArray());
             }
             return type.GetField(fieldName, BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance | BindingFlags.NonPublic);
         }
@@ -161,7 +157,7 @@ namespace ResultProject
                         }
                         else {
                             method = GetMethodByName(instruction.OperandInfo.OperandName,
-                            instruction.OperandInfo.ParametersTypesNames);
+                            instruction.OperandInfo.ParametersTypesNames, genericTypes, instruction.OperandInfo.DeclaringTypeGenericTypesNames);
                         }
                         token = method.DeclaringType.IsGenericType
                             ? ilInfo.GetTokenFor(method.MethodHandle, method.DeclaringType.TypeHandle)
@@ -170,7 +166,7 @@ namespace ResultProject
                     }
                     case OperandTypeInfo.Field:
                     {
-                        var field = GetFieldByName(instruction.OperandInfo.OperandName, genericTypes);
+                        var field = GetFieldByName(instruction.OperandInfo.OperandName, genericTypes, instruction.OperandInfo.DeclaringTypeGenericTypesNames);
                         token = field.DeclaringType.IsGenericType
                             ? ilInfo.GetTokenFor(field.FieldHandle, field.DeclaringType.TypeHandle)
                             : ilInfo.GetTokenFor(field.FieldHandle);
@@ -284,6 +280,9 @@ namespace ResultProject
             var localVarSigHelper = SignatureHelper.GetLocalVarSigHelper();
             foreach (var local in methodBody.LocalVariables) {
                 var type = GetTypeByName(local.TypeName) ?? genericTypes[local.TypeName];
+                if (type.IsGenericTypeDefinition) {
+                    type = type.MakeGenericType(local.GenericTypesNames.Select(a => genericTypes[a]).ToArray());
+                }
                 localVarSigHelper.AddArgument(type, local.IsPinned);
             }
             ilInfo.SetLocalSignature(localVarSigHelper.GetSignature());

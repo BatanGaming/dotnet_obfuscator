@@ -9,5 +9,6 @@ namespace CodeGen.Models
         public string OperandName { get; set; }
         public string[] ParametersTypesNames { get; set; }
         public string[] GenericTypesNames { get; set; }
+        public string[] DeclaringTypeGenericTypesNames { get; set; }
     }
 }

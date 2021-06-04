@@ -65,14 +65,19 @@ namespace CodeGen.Generators
                 _ => null
             };
         }
+        
+        
 
         private static string ResolveObjectName(object obj) {
             return obj switch {
-                Type type => type.FullName ?? type.Name,
+                Type type => type.FullName 
+                             ?? (type.IsGenericType && type.GetGenericArguments().Any(a => a.IsGenericParameter) || type.IsGenericTypeDefinition
+                                 ? type.GetGenericTypeDefinition().FullName 
+                                 : type.Name),
                 string str => str,
-                FieldInfo field => $"{field.DeclaringType.FullName}#{field.Name}",
-                MethodInfo method => $"{method.DeclaringType.FullName}#{method.Name}",
-                ConstructorInfo constructor => $"{constructor.DeclaringType.FullName}#{constructor.Name}",
+                FieldInfo field =>  $"{ResolveObjectName(field.DeclaringType)}#{field.Name}",
+                MethodInfo method => $"{ResolveObjectName(method.DeclaringType)}#{method.Name}",
+                ConstructorInfo constructor => $"{ResolveObjectName(constructor.DeclaringType)}#{constructor.Name}",
                 _ => null
             };
         }
@@ -91,9 +96,16 @@ namespace CodeGen.Generators
                 let parameters = operand is MethodBase method
                     ? method.GetParameters().Select(p => ResolveObjectName(p.ParameterType)).ToArray()
                     : null
-                let genericArguments = (operand is MethodBase method && !method.Name.Contains("ctor"))
-                    ? method.GetGenericArguments().Select(ResolveObjectName).ToArray()
-                    : null
+                let genericArguments = operand switch {
+                    MethodBase method when !method.Name.Contains("ctor") => method.GetGenericArguments(),
+                    Type type => type.GetGenericArguments(),
+                    _ => null
+                }
+                let declaringTypeGenericArguments = operand switch {
+                    MethodBase method => method.DeclaringType.GetGenericArguments(),
+                    FieldInfo field => field.DeclaringType.GetGenericArguments(),
+                    _ => null
+                }
                 select new InstructionInfo {
                     Offset = instruction.Offset,
                     Size = instruction.OpCode.Size,
@@ -101,7 +113,8 @@ namespace CodeGen.Generators
                         OperandType = ConvertOperandType(instruction.OpCode.OperandType),
                         OperandName = ResolveObjectName(operand),
                         ParametersTypesNames = parameters,
-                        GenericTypesNames = genericArguments
+                        GenericTypesNames = genericArguments?.Select(ResolveObjectName).ToArray(),
+                        DeclaringTypeGenericTypesNames = declaringTypeGenericArguments?.Select(ResolveObjectName).ToArray()
                     }
                 };
             var methodBody = _method.GetMethodBody();
@@ -112,7 +125,11 @@ namespace CodeGen.Generators
                 LocalVariables = methodBody.LocalVariables.Select(l => 
                     new SerializableLocalVariableInfo {
                         IsPinned = l.IsPinned, 
-                        TypeName = l.LocalType.FullName ?? l.LocalType.Name
+                        TypeName = l.LocalType.FullName 
+                                   ?? (l.LocalType.IsGenericType && l.LocalType.GetGenericArguments().Any(a => a.IsGenericParameter) || l.LocalType.IsGenericTypeDefinition
+                                       ? l.LocalType.GetGenericTypeDefinition().FullName 
+                                       : l.LocalType.Name),
+                        GenericTypesNames = l.LocalType.GetGenericArguments().Select(ResolveObjectName).ToArray()
                     }).ToList()
             };
         }

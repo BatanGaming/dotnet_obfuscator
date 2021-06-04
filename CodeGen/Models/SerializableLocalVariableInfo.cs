@@ -7,5 +7,6 @@ namespace CodeGen.Models
     {
         public string TypeName { get; set; }
         public bool IsPinned { get; set; }
+        public string[] GenericTypesNames { get; set; }
     }
 }
