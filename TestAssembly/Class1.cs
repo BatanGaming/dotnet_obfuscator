@@ -1,17 +1,14 @@
 ﻿using System;
+using System.Collections.Generic;
 
 namespace TestAssembly
 {
-    public class Class1<T> where T: new()
+    public class TestClass<T, TEntity> where T: IEnumerable<TEntity>
     {
-        public T Field;
-
-        public Class1() {
-            Field = new T();
-        }
-
-        public T CreateNew() {
-            return new T();
+        public void View(T list){
+            foreach (var entity in list) {
+                Console.WriteLine(entity);
+            }
         }
     }
 }

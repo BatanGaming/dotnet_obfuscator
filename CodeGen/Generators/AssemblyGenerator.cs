@@ -55,7 +55,7 @@ namespace CodeGen.Generators
             WriteSection("$PARENTS", builder.ToString());
         }
 
-        private void SetGenericConstraints() {
+        private void SetGenericConstraintsForTypes() {
             var builder = new StringBuilder();
             foreach (var type in _assembly.DefinedTypes.Where(t => t.IsGenericTypeDefinition)) {
                 var arguments = type.GetGenericArguments().Where(a => a.IsGenericParameter).ToList();
@@ -89,7 +89,7 @@ namespace CodeGen.Generators
                     }
                 }
             }
-            WriteSection("$GENERIC_CONSTRAINTS", builder.ToString());
+            WriteSection("$GENERIC_CONSTRAINTS_TYPES", builder.ToString());
         }
         
         private void GenerateEnumConstants() {
@@ -166,6 +166,73 @@ namespace CodeGen.Generators
                 }
             }
             WriteSection("$METHODS_DEFINITIONS", builder.ToString());
+        }
+        
+        private void SetGenericConstraintsForMethods() {
+            var builder = new StringBuilder();
+            foreach (var type in _assembly.DefinedTypes) {
+                foreach (var method in type.GetMethods(BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static).Where(m => m.IsGenericMethodDefinition)) {
+                    var arguments = method.GetGenericArguments().Where(a => a.IsGenericParameter).ToList();
+                    var argumentsName = arguments.Select(a => $@"""{a.Name}""");
+                    var methodName = CommonGenerator.ResolveCustomName(method);
+                    var arrayName = $"{methodName}_generic_parameters";
+                    builder.AppendLine(
+                        $"var {arrayName} = {methodName}.DefineGenericParameters({string.Join(',', argumentsName)});");
+                    for (var i = 0; i < arguments.Count; ++i) {
+                        var genericArgumentName = CommonGenerator.GenerateTypeGeneratorName(arguments[i]);
+                        builder.AppendLine($"var {genericArgumentName} = {arrayName}[{i}];");
+                        if (arguments[i].GenericParameterAttributes != GenericParameterAttributes.None) {
+                            builder.AppendLine(
+                                $"{genericArgumentName}.SetGenericParameterAttributes({AttributesGenerator.Generate(arguments[i].GenericParameterAttributes)});");
+                        }
+
+                        var constraintTypes = arguments[i].GetGenericParameterConstraints();
+                        if (constraintTypes.Length != 0) {
+                            if (constraintTypes.Any(t => t.IsInterface)) {
+                                builder.AppendLine(
+                                    $"{genericArgumentName}.SetInterfaceConstraints({string.Join(',', constraintTypes.Where(t => t.IsInterface).Select(CommonGenerator.ResolveTypeName))});"
+                                );
+                            }
+
+                            if (constraintTypes.Any(t => t.IsClass)) {
+                                var baseType = constraintTypes.FirstOrDefault(t => t.IsClass);
+                                builder.AppendLine(
+                                    $"{genericArgumentName}.SetBaseTypeConstraint({CommonGenerator.ResolveTypeName(baseType)});"
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+            WriteSection("$GENERIC_CONSTRAINTS_METHODS", builder.ToString());
+        }
+
+        private void SetParameters() {
+            var builder = new StringBuilder();
+            foreach (var type in _assembly.DefinedTypes) {
+                foreach (var method in type
+                    .GetMethods(BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic |
+                                BindingFlags.Instance | BindingFlags.Static)
+                    .Where(m => m.GetParameters().Length != 0)) {
+                    builder.AppendLine(
+                        $"{CommonGenerator.ResolveCustomName(method)}.SetParameters({string.Join(',', method.GetParameters().Select(p => CommonGenerator.ResolveTypeName(p.ParameterType)))});");
+                }
+            }
+            WriteSection("$METHODS_PARAMETERS", builder.ToString());
+        }
+
+        private void SetReturnTypes() {
+            var builder = new StringBuilder();
+            foreach (var type in _assembly.DefinedTypes) {
+                foreach (var method in type
+                    .GetMethods(BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic |
+                                BindingFlags.Instance | BindingFlags.Static)
+                    .Where(m => m.ReturnType != typeof(void))) {
+                    builder.AppendLine(
+                        $"{CommonGenerator.ResolveCustomName(method)}.SetReturnType({CommonGenerator.ResolveTypeName(method.ReturnType)});");
+                }
+            }
+            WriteSection("$METHODS_RETURN_TYPES", builder.ToString());
         }
 
         private void AddOverriding() {
@@ -248,13 +315,16 @@ namespace CodeGen.Generators
             GenerateRootTypesDefinitions();
             GenerateNestedTypesDefinitions();
             SetParents();
-            SetGenericConstraints();
+            SetGenericConstraintsForTypes();
             AddInterfaceImplementations();
             GenerateFields();
             GenerateEnumConstants();
             GenerateConstructorsDefinitions();
             GenerateConstructorsBodies();
             GenerateMethodsDefinitions();
+            SetGenericConstraintsForMethods();
+            SetParameters();
+            SetReturnTypes();
             AddOverriding();
             GenerateMethodBodies();
             SerializeMethodBodies();

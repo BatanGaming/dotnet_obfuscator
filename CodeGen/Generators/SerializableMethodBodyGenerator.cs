@@ -40,11 +40,11 @@ namespace CodeGen.Generators
 
         private object ResolveToken(int token, OperandType operandType) {
             return operandType switch {
-                OperandType.InlineMethod => _module.ResolveMethod(token, _method.DeclaringType.GetGenericArguments(), null),
-                OperandType.InlineField => _module.ResolveField(token, _method.DeclaringType.GetGenericArguments(), null),
+                OperandType.InlineMethod => _module.ResolveMethod(token, _method.DeclaringType.GetGenericArguments(), _method.GetGenericArguments()),
+                OperandType.InlineField => _module.ResolveField(token, _method.DeclaringType.GetGenericArguments(), _method.GetGenericArguments()),
                 OperandType.InlineSig => _module.ResolveSignature(token),
                 OperandType.InlineString => _module.ResolveString(token),
-                OperandType.InlineType => _module.ResolveType(token, _method.DeclaringType.GetGenericArguments(), null),
+                OperandType.InlineType => _module.ResolveType(token, _method.DeclaringType.GetGenericArguments(), _method.GetGenericArguments()),
                 OperandType.InlineTok => SafeResolveToken(token),
                 var x when
                     x == OperandType.ShortInlineI ||

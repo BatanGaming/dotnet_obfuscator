@@ -357,7 +357,7 @@ namespace ResultProject
                 
             $PARENTS
 
-            $GENERIC_CONSTRAINTS
+            $GENERIC_CONSTRAINTS_TYPES
 
             $INTERFACES_IMPLEMENTATIONS
                 
@@ -371,6 +371,12 @@ namespace ResultProject
                 
             
             $METHODS_DEFINITIONS
+                
+            $GENERIC_CONSTRAINTS_METHODS
+                
+            $METHODS_PARAMETERS
+                
+            $METHODS_RETURN_TYPES
                 
             $METHODS_OVERRIDING
                 
