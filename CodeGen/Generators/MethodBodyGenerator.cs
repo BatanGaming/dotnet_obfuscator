@@ -66,8 +66,8 @@ namespace CodeGen.Generators
             builder.AppendLine(@$"{ilGeneratorName}.Emit(OpCodes.Call, typeof(Program).GetMethod(""GetMethod"", new [] {{typeof(MethodInfo), typeof(Dictionary<string, Type>), typeof(object)}}));");
 
             builder.AppendLine($"{ilGeneratorName}.Emit(OpCodes.Castclass, {closedDelegateTypeName});");
-            for (var i = _method.IsStatic ? 0 : 1; i < parameters.Count; ++i) {
-                builder.AppendLine($"{ilGeneratorName}.Emit(OpCodes.Ldarg, {i});");
+            for (var i = 0; i < parameters.Count; ++i) {
+                builder.AppendLine($"{ilGeneratorName}.Emit(OpCodes.Ldarg, {(_method.IsStatic ? i : i + 1)});");
             }
 
             if (delegateType.GenericTypeArguments.Any(t => t.IsGenericParameter)) {

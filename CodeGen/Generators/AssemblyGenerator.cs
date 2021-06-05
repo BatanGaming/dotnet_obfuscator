@@ -67,17 +67,20 @@ namespace CodeGen.Generators
                 for (var i = 0; i < arguments.Count; ++i) {
                     var genericArgumentName = CommonGenerator.GenerateTypeGeneratorName(arguments[i]);
                     builder.AppendLine($"var {genericArgumentName} = {arrayName}[{i}];");
-                    if (arguments[i].GenericParameterAttributes != GenericParameterAttributes.None) {
+                }
+                foreach (var argument in arguments) {
+                    var genericArgumentName = CommonGenerator.ResolveCustomName(argument);
+                    if (argument.GenericParameterAttributes != GenericParameterAttributes.None) {
                         builder.AppendLine(
-                            $"{genericArgumentName}.SetGenericParameterAttributes({AttributesGenerator.Generate(arguments[i].GenericParameterAttributes)});");
+                            $"{genericArgumentName}.SetGenericParameterAttributes({AttributesGenerator.Generate(argument.GenericParameterAttributes)});");
                     }
 
-                    var constraintTypes = arguments[i].GetGenericParameterConstraints();
+                    var constraintTypes = argument.GetGenericParameterConstraints();
                     if (constraintTypes.Length != 0) {
                         if (constraintTypes.Any(t => t.IsInterface)) {
                             builder.AppendLine(
                                 $"{genericArgumentName}.SetInterfaceConstraints({string.Join(',', constraintTypes.Where(t => t.IsInterface).Select(CommonGenerator.ResolveTypeName))});"
-                                );
+                            );
                         }
 
                         if (constraintTypes.Any(t => t.IsClass)) {
@@ -181,12 +184,15 @@ namespace CodeGen.Generators
                     for (var i = 0; i < arguments.Count; ++i) {
                         var genericArgumentName = CommonGenerator.GenerateTypeGeneratorName(arguments[i]);
                         builder.AppendLine($"var {genericArgumentName} = {arrayName}[{i}];");
-                        if (arguments[i].GenericParameterAttributes != GenericParameterAttributes.None) {
+                    }
+                    foreach (var argument in arguments) {
+                        var genericArgumentName = CommonGenerator.ResolveCustomName(argument);
+                        if (argument.GenericParameterAttributes != GenericParameterAttributes.None) {
                             builder.AppendLine(
-                                $"{genericArgumentName}.SetGenericParameterAttributes({AttributesGenerator.Generate(arguments[i].GenericParameterAttributes)});");
+                                $"{genericArgumentName}.SetGenericParameterAttributes({AttributesGenerator.Generate(argument.GenericParameterAttributes)});");
                         }
 
-                        var constraintTypes = arguments[i].GetGenericParameterConstraints();
+                        var constraintTypes = argument.GetGenericParameterConstraints();
                         if (constraintTypes.Length != 0) {
                             if (constraintTypes.Any(t => t.IsInterface)) {
                                 builder.AppendLine(

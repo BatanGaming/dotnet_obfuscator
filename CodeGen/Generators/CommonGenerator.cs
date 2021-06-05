@@ -34,7 +34,11 @@ namespace CodeGen.Generators
                 new CodeTypeReferenceExpression(new CodeTypeReference(type));
             using var writer = new StringWriter();
             codeDomProvider.GenerateCodeFromExpression(typeReferenceExpression, writer, new CodeGeneratorOptions());
-            return $"typeof({writer.GetStringBuilder()})";
+            var generic = "";
+            if (type.IsGenericType && type.GetGenericArguments().Any(t => ResolveCustomName(t) != null)) {
+                generic = $".MakeGenericType({string.Join(',', type.GetGenericArguments().Select(ResolveTypeName))})";
+            }
+            return $"typeof({writer.GetStringBuilder()}){generic}";
         }
 
         public static string ResolveMethodBodyBuilderName(MethodBase method) {
