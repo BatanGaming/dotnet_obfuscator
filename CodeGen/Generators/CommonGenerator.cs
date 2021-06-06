@@ -18,6 +18,11 @@ namespace CodeGen.Generators
 
         private static int _duplicates = 0;
         private static readonly char[] _specialCharacters = {'.', '<', '>', '`'};
+
+        public static bool CheckIfCustomGenericArgument(Type type) {
+            return type.GetGenericArguments().Any(t =>
+                ResolveCustomName(t) != null || (t.IsGenericType && CheckIfCustomGenericArgument(t)));
+        }
         
         public static string FixSpecialName(string name) {
             return _specialCharacters.Aggregate(name, (current, character) => current.Replace(character.ToString(), ""));
@@ -35,7 +40,7 @@ namespace CodeGen.Generators
             using var writer = new StringWriter();
             codeDomProvider.GenerateCodeFromExpression(typeReferenceExpression, writer, new CodeGeneratorOptions());
             var generic = "";
-            if (type.IsGenericType && type.GetGenericArguments().Any(t => ResolveCustomName(t) != null)) {
+            if (CheckIfCustomGenericArgument(type)) {
                 generic = $".MakeGenericType({string.Join(',', type.GetGenericArguments().Select(ResolveTypeName))})";
             }
             return $"typeof({writer.GetStringBuilder()}){generic}";

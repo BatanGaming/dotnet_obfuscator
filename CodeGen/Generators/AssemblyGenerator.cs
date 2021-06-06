@@ -7,7 +7,9 @@ using System.Text;
 using System.Text.Json;
 using CodeGen.Generators.MembersGenerators;
 using CodeGen.Generators.TypesGenerators;
+using CodeGen.Models;
 using CodeGen.Templates;
+using Newtonsoft.Json;
 
 namespace CodeGen.Generators
 {
@@ -295,7 +297,7 @@ namespace CodeGen.Generators
             foreach (var type in _assembly.DefinedTypes.Where(t => !t.IsInterface)) {
                 foreach (var method in type.GetMethods(BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static)) {
                     var body = new SerializableMethodBodyGenerator(method).Generate();
-                    var serialized = JsonSerializer.Serialize(body);
+                    var serialized = JsonConvert.SerializeObject(body);
                     var bytes = Encoding.ASCII.GetBytes(serialized);
                     var encoded = Convert.ToBase64String(bytes);
                     builder.AppendLine($@"{{@""{method.DeclaringType.FullName}#{method.Name}"", @""{encoded}""}},");

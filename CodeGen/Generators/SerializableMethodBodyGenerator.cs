@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using CodeGen.Models;
 using Parser;
+using TypeInfo = CodeGen.Models.TypeInfo;
 
 namespace CodeGen.Generators
 {
@@ -70,15 +71,21 @@ namespace CodeGen.Generators
 
         private static string ResolveObjectName(object obj) {
             return obj switch {
-                Type type => type.FullName 
-                             ?? (type.IsGenericType && type.GetGenericArguments().Any(a => a.IsGenericParameter) || type.IsGenericTypeDefinition
-                                 ? type.GetGenericTypeDefinition().FullName 
-                                 : type.Name),
+                Type type => type.FullName ?? $"{type.Namespace}.{type.Name}",
                 string str => str,
                 FieldInfo field =>  $"{ResolveObjectName(field.DeclaringType)}#{field.Name}",
                 MethodInfo method => $"{ResolveObjectName(method.DeclaringType)}#{method.Name}",
                 ConstructorInfo constructor => $"{ResolveObjectName(constructor.DeclaringType)}#{constructor.Name}",
                 _ => null
+            };
+        }
+
+        private static TypeInfo GetTypeInfo(Type type) {
+            return new TypeInfo {
+                Name = ResolveObjectName(type).Trim('*', '&'),
+                GenericArguments = type.GetGenericArguments().Select(GetTypeInfo).ToArray(),
+                IsByRef = type.IsByRef,
+                IsPointer = type.IsPointer
             };
         }
 
@@ -89,12 +96,13 @@ namespace CodeGen.Generators
 
         public SerializableMethodBody Generate() {
             var parser = new IlParser(_method);
+            var p = _method.GetParameters();
             var instructions = from instruction in parser.Parse()
                 let operand = instruction.OperandToken != null
                     ? ResolveToken(instruction.OperandToken.Value, instruction.OpCode.OperandType)
                     : null
                 let parameters = operand is MethodBase method
-                    ? method.GetParameters().Select(p => ResolveObjectName(p.ParameterType)).ToArray()
+                    ? method.GetParameters().Select(p => GetTypeInfo(p.ParameterType)).ToArray()
                     : null
                 let genericArguments = operand switch {
                     MethodBase method when !method.Name.Contains("ctor") => method.GetGenericArguments(),
@@ -112,9 +120,9 @@ namespace CodeGen.Generators
                     OperandInfo = new OperandInfo {
                         OperandType = ConvertOperandType(instruction.OpCode.OperandType),
                         OperandName = ResolveObjectName(operand),
-                        ParametersTypesNames = parameters,
-                        GenericTypesNames = genericArguments?.Select(ResolveObjectName).ToArray(),
-                        DeclaringTypeGenericTypesNames = declaringTypeGenericArguments?.Select(ResolveObjectName).ToArray()
+                        Parameters = parameters,
+                        GenericTypes = genericArguments?.Select(GetTypeInfo).ToArray(),
+                        DeclaringTypeGenericTypes = declaringTypeGenericArguments?.Select(GetTypeInfo).ToArray()
                     }
                 };
             var methodBody = _method.GetMethodBody();
@@ -125,11 +133,7 @@ namespace CodeGen.Generators
                 LocalVariables = methodBody.LocalVariables.Select(l => 
                     new SerializableLocalVariableInfo {
                         IsPinned = l.IsPinned, 
-                        TypeName = l.LocalType.FullName 
-                                   ?? (l.LocalType.IsGenericType && l.LocalType.GetGenericArguments().Any(a => a.IsGenericParameter) || l.LocalType.IsGenericTypeDefinition
-                                       ? l.LocalType.GetGenericTypeDefinition().FullName 
-                                       : l.LocalType.Name),
-                        GenericTypesNames = l.LocalType.GetGenericArguments().Select(ResolveObjectName).ToArray()
+                        Info = GetTypeInfo(l.LocalType)
                     }).ToList()
             };
         }

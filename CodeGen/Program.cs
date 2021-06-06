@@ -1,11 +1,10 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Text;
-using System.Text.Json;
+using Newtonsoft.Json;
 
 namespace ResultProject
 {
@@ -24,9 +23,9 @@ namespace ResultProject
         {
             public OperandTypeInfo? OperandType { get; set; }
             public string OperandName { get; set; }
-            public string[] ParametersTypesNames { get; set; }
-            public string[] GenericTypesNames { get; set; }
-            public string[] DeclaringTypeGenericTypesNames { get; set; }
+            public TypeInfo[] Parameters { get; set; }
+            public TypeInfo[] GenericTypes { get; set; }
+            public TypeInfo[] DeclaringTypeGenericTypes { get; set; }
         }
         
         [Serializable]
@@ -42,9 +41,8 @@ namespace ResultProject
         [Serializable]
         public class SerializableLocalVariableInfo
         {
-            public string TypeName { get; set; }
+            public TypeInfo Info { get; set; }
             public bool IsPinned { get; set; }
-            public string[] GenericTypesNames { get; set; }
         }
         
         [Serializable]
@@ -54,6 +52,15 @@ namespace ResultProject
             public List<InstructionInfo> Instructions { get; set; }
             public int MaxStackSize { get; set; }
             public List<SerializableLocalVariableInfo> LocalVariables { get; set; }
+        }
+        
+        [Serializable]
+        public class TypeInfo
+        {
+            public string Name { get; set; }
+            public TypeInfo[] GenericArguments { get; set; }
+            public bool IsByRef { get; set; }
+            public bool IsPointer { get; set; }
         }
         
         private static readonly Dictionary<string, object> _methods = new Dictionary<string, object> {
@@ -75,17 +82,17 @@ namespace ResultProject
             return null;
         }
 
-        private static MethodBase GetMethodByName(string name, IReadOnlyCollection<string> parametersNames, IReadOnlyDictionary<string, Type> genericTypes, IEnumerable<string> genericArguments) {
+        private static MethodBase GetMethodByName(string name, IReadOnlyCollection<TypeInfo> parameters, IReadOnlyDictionary<string, Type> genericTypes, IEnumerable<TypeInfo> genericArguments) {
             var index = name.LastIndexOf('#');
             var methodName = name.Substring(index + 1);
-            var cachedName = $"{name}({string.Join(',', parametersNames)})";
+            var cachedName = $"{name}({string.Join(',', parameters)})";
             var typeName = name.Remove(index);
             var type = GetTypeByName(typeName);
             if (type.IsGenericTypeDefinition) {
-                type = type.MakeGenericType(genericArguments.Select(a => genericTypes[a]).ToArray());
+                type = type.MakeGenericType(genericArguments.Select(a => ConstructGenericType(a, genericTypes)).ToArray());
             }
-            var parametersTypes = parametersNames.Count != 0
-                ? (from parameter in parametersNames select GetTypeByName(parameter)).ToArray()
+            var parametersTypes = parameters.Count != 0
+                ? (from parameter in parameters select ConstructGenericType(parameter, genericTypes)).ToArray()
                 : Type.EmptyTypes;
             MethodBase method;
             if (methodName.Contains("ctor")) {
@@ -98,14 +105,14 @@ namespace ResultProject
             return method;
         }
         
-        private static MethodInfo GetGenericMethod(OperandInfo info) {
+        private static MethodInfo GetGenericMethod(OperandInfo info, IReadOnlyDictionary<string, Type> genericTypes) {
             var index = info.OperandName.LastIndexOf('#');
             var methodName = info.OperandName.Substring(index + 1);
             var typeName = info.OperandName.Remove(index);
             var type = GetTypeByName(typeName);
-            var genericParametersTypes = info.GenericTypesNames.Select(GetTypeByName).ToArray();
-            var parametersTypes = info.ParametersTypesNames.Length != 0
-                ? (from parameter in info.ParametersTypesNames select GetTypeByName(parameter)).ToArray()
+            var genericParametersTypes = info.GenericTypes.Select(t => ConstructGenericType(t, genericTypes)).ToArray();
+            var parametersTypes = info.Parameters.Length != 0
+                ? (from parameter in info.Parameters select ConstructGenericType(parameter, genericTypes)).ToArray()
                 : Type.EmptyTypes;
             var possibleMethods = type
                 .GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic |
@@ -127,13 +134,13 @@ namespace ResultProject
                 select exactMethod).FirstOrDefault();
         }
 
-        private static FieldInfo GetFieldByName(string name, IReadOnlyDictionary<string, Type> genericTypes, IEnumerable<string> genericArguments) {
+        private static FieldInfo GetFieldByName(string name, IReadOnlyDictionary<string, Type> genericTypes, IEnumerable<TypeInfo> genericArguments) {
             var index = name.LastIndexOf('#');
             var fieldName = name.Substring(index + 1);
             var typeName = name.Remove(index);
             var type = GetTypeByName(typeName);
             if (type.IsGenericTypeDefinition) {
-                type = type.MakeGenericType(genericArguments.Select(t => genericTypes[t]).ToArray());
+                type = type.MakeGenericType(genericArguments.Select(t => ConstructGenericType(t, genericTypes)).ToArray());
             }
             return type.GetField(fieldName, BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance | BindingFlags.NonPublic);
         }
@@ -145,19 +152,12 @@ namespace ResultProject
                     case OperandTypeInfo.Method:
                     {
                         MethodBase method;
-                        if (instruction.OperandInfo.GenericTypesNames != null && instruction.OperandInfo.GenericTypesNames.Length != 0) {
-                            if (genericTypes != null) {
-                                for (var i = 0; i < instruction.OperandInfo.GenericTypesNames.Length; ++i) {
-                                    if (genericTypes.ContainsKey(instruction.OperandInfo.GenericTypesNames[i])) {
-                                        instruction.OperandInfo.GenericTypesNames[i] = genericTypes[instruction.OperandInfo.GenericTypesNames[i]].FullName;
-                                    }
-                                }
-                            }
-                            method = GetGenericMethod(instruction.OperandInfo);
+                        if (instruction.OperandInfo.GenericTypes != null && instruction.OperandInfo.GenericTypes.Length != 0) {
+                            method = GetGenericMethod(instruction.OperandInfo, genericTypes);
                         }
                         else {
                             method = GetMethodByName(instruction.OperandInfo.OperandName,
-                            instruction.OperandInfo.ParametersTypesNames, genericTypes, instruction.OperandInfo.DeclaringTypeGenericTypesNames);
+                            instruction.OperandInfo.Parameters, genericTypes, instruction.OperandInfo.DeclaringTypeGenericTypes);
                         }
                         token = method.DeclaringType.IsGenericType
                             ? ilInfo.GetTokenFor(method.MethodHandle, method.DeclaringType.TypeHandle)
@@ -166,7 +166,7 @@ namespace ResultProject
                     }
                     case OperandTypeInfo.Field:
                     {
-                        var field = GetFieldByName(instruction.OperandInfo.OperandName, genericTypes, instruction.OperandInfo.DeclaringTypeGenericTypesNames);
+                        var field = GetFieldByName(instruction.OperandInfo.OperandName, genericTypes, instruction.OperandInfo.DeclaringTypeGenericTypes);
                         token = field.DeclaringType.IsGenericType
                             ? ilInfo.GetTokenFor(field.FieldHandle, field.DeclaringType.TypeHandle)
                             : ilInfo.GetTokenFor(field.FieldHandle);
@@ -246,22 +246,53 @@ namespace ResultProject
                 : delegateType;
         }
 
+        private static bool CheckIfNeedConstruct(Type type) {
+            return type.GetGenericArguments().Any(t => t.IsGenericParameter || (t.IsGenericType && CheckIfNeedConstruct(t)));
+        }
+
+        private static Type ConstructGenericType(Type type, IReadOnlyDictionary<string, Type> genericTypes) {
+            if (!CheckIfNeedConstruct(type) && !type.IsGenericParameter) {
+                return type;
+            }
+
+            return type.IsGenericParameter 
+                ? genericTypes[$"{type.Namespace}.{type.Name}"] 
+                : GetTypeByName($"{type.Namespace}.{type.Name}").MakeGenericType(type.GetGenericArguments().Select(t => ConstructGenericType(t, genericTypes)).ToArray());
+        }
+
+        private static Type ConstructGenericType(TypeInfo type, IReadOnlyDictionary<string, Type> genericTypes) {
+            var resultType = GetTypeByName(type.Name);
+            if (resultType is {IsGenericTypeDefinition: false}) {
+                goto end;
+            }
+            if (type.GenericArguments == null || type.GenericArguments.Length == 0) {
+                resultType = genericTypes[type.Name];
+                goto end;
+            }
+            
+            resultType = GetTypeByName(type.Name).MakeGenericType(type.GenericArguments.Select(t => ConstructGenericType(t, genericTypes)).ToArray());
+            
+            end:
+            if (type.IsByRef) {
+                return resultType.MakeByRefType();
+            }
+            if (type.IsPointer) {
+                return resultType.MakePointerType();
+            }
+            return resultType;
+        }
+
         private static Delegate GetGenericMethod(MethodInfo methodInfo, IReadOnlyDictionary<string, Type> genericTypes, object target) {
             var methodName = $"{methodInfo.DeclaringType.FullName}#{methodInfo.Name}";
-            var parameters = methodInfo.GetParameters().Select(p =>
-                p.ParameterType.IsGenericParameter ? genericTypes[p.ParameterType.Name] : p.ParameterType).ToList();
+            var parameters = methodInfo.GetParameters().Select(p => ConstructGenericType(p.ParameterType, genericTypes)).ToList();
             var returnType = methodInfo.ReturnType == typeof(void)
                 ? null
-                : methodInfo.ReturnType.IsGenericParameter
-                    ? genericTypes[methodInfo.ReturnType.Name]
-                    : methodInfo.ReturnType;
+                : ConstructGenericType(methodInfo.ReturnType, genericTypes);
             var delegateType = CloseDelegateType(
                 GetDelegateType(parameters.Count, returnType != null),
                 (returnType == null ? parameters : parameters.Concat(new[] {returnType})).ToArray()
                 );
-            var declaringType = methodInfo.DeclaringType.IsGenericTypeDefinition
-                ? methodInfo.DeclaringType.MakeGenericType(methodInfo.DeclaringType.GetGenericArguments().Select(t => genericTypes[t.Name]).ToArray())
-                : methodInfo.DeclaringType;
+            var declaringType = ConstructGenericType(methodInfo.DeclaringType, genericTypes);
             if (!methodInfo.IsStatic) {
                 parameters.Insert(0, declaringType);
             }
@@ -274,15 +305,12 @@ namespace ResultProject
             );
             var encodedMethodBody = _methods[methodName] as string;
             var serializedMethodBody = Encoding.ASCII.GetString(Convert.FromBase64String(encodedMethodBody));
-            var methodBody = JsonSerializer.Deserialize<SerializableMethodBody>(serializedMethodBody);
+            var methodBody = JsonConvert.DeserializeObject<SerializableMethodBody>(serializedMethodBody);
             var ilInfo = method.GetDynamicILInfo();
             
             var localVarSigHelper = SignatureHelper.GetLocalVarSigHelper();
             foreach (var local in methodBody.LocalVariables) {
-                var type = GetTypeByName(local.TypeName) ?? genericTypes[local.TypeName];
-                if (type.IsGenericTypeDefinition) {
-                    type = type.MakeGenericType(local.GenericTypesNames.Select(a => genericTypes[a]).ToArray());
-                }
+                var type = ConstructGenericType(local.Info, genericTypes);
                 localVarSigHelper.AddArgument(type, local.IsPinned);
             }
             ilInfo.SetLocalSignature(localVarSigHelper.GetSignature());
@@ -322,12 +350,12 @@ namespace ResultProject
             );
             var encodedMethodBody = _methods[methodName] as string;
             var serializedMethodBody = Encoding.ASCII.GetString(Convert.FromBase64String(encodedMethodBody));
-            var methodBody = JsonSerializer.Deserialize<SerializableMethodBody>(serializedMethodBody);
+            var methodBody = JsonConvert.DeserializeObject<SerializableMethodBody>(serializedMethodBody);
             var ilInfo = method.GetDynamicILInfo();
             
             var localVarSigHelper = SignatureHelper.GetLocalVarSigHelper();
             foreach (var local in methodBody.LocalVariables) {
-                var type = GetTypeByName(local.TypeName);
+                var type = GetTypeByName(local.Info.Name);
                 localVarSigHelper.AddArgument(type, local.IsPinned);
             }
             ilInfo.SetLocalSignature(localVarSigHelper.GetSignature());

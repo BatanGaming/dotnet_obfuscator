@@ -33,7 +33,7 @@ namespace CodeGen.Generators
 
             var ilGeneratorName = CommonGenerator.GenerateMethodBodyGeneratorName(_method);
             var builder = new StringBuilder();
-            var delegateTypeName = $"delegate_type_{CommonGenerator.FixSpecialName(_method.DeclaringType.Name)}_{CommonGenerator.FixSpecialName(_method.Name)}_{_method.ReturnType.Name}";
+            var delegateTypeName = $"delegate_type_{CommonGenerator.FixSpecialName(_method.DeclaringType.Name)}_{CommonGenerator.FixSpecialName(_method.Name)}_{CommonGenerator.FixSpecialName(_method.ReturnType.FullName ?? _method.ReturnType.Name)}";
             var closedDelegateTypeName = delegateTypeName;
             builder.AppendLine($"var {delegateTypeName} = typeof({genericTypeName});");
             if (makeGenericString != null) {
@@ -48,7 +48,7 @@ namespace CodeGen.Generators
                 
                 foreach (var genericParameter in _method.GetGenericArguments().Concat(_method.DeclaringType.GetGenericArguments())) {
                     builder.AppendLine($@"{ilGeneratorName}.Emit(OpCodes.Dup);");
-                    builder.AppendLine($@"{ilGeneratorName}.Emit(OpCodes.Ldstr, ""{genericParameter.Name}"");");
+                    builder.AppendLine($@"{ilGeneratorName}.Emit(OpCodes.Ldstr, ""{genericParameter.Namespace}.{genericParameter.Name}"");");
                     builder.AppendLine($@"{ilGeneratorName}.Emit(OpCodes.Ldtoken, {CommonGenerator.ResolveCustomName(genericParameter)});");
                     builder.AppendLine(
                         $@"{ilGeneratorName}.Emit(OpCodes.Call, typeof(Type).GetMethod(""GetTypeFromHandle"", new [] {{ typeof(RuntimeTypeHandle) }}));");
@@ -70,7 +70,7 @@ namespace CodeGen.Generators
                 builder.AppendLine($"{ilGeneratorName}.Emit(OpCodes.Ldarg, {(_method.IsStatic ? i : i + 1)});");
             }
 
-            if (delegateType.GenericTypeArguments.Any(t => t.IsGenericParameter)) {
+            if (CommonGenerator.CheckIfCustomGenericArgument(delegateType)) {
                 builder.AppendLine($@"{ilGeneratorName}.Emit(OpCodes.Callvirt, TypeBuilder.GetMethod({closedDelegateTypeName}, {delegateTypeName}.GetMethod(""Invoke"")));");
             }
             else {

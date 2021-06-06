@@ -7,8 +7,8 @@ namespace CodeGen.Models
     {
         public OperandTypeInfo? OperandType { get; set; }
         public string OperandName { get; set; }
-        public string[] ParametersTypesNames { get; set; }
-        public string[] GenericTypesNames { get; set; }
-        public string[] DeclaringTypeGenericTypesNames { get; set; }
+        public TypeInfo[] Parameters { get; set; }
+        public TypeInfo[] GenericTypes { get; set; }
+        public TypeInfo[] DeclaringTypeGenericTypes { get; set; }
     }
 }
