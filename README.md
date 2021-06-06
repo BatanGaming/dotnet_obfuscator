@@ -3,13 +3,14 @@ Task list
 - - [x] Classes
 - - [x] Structs
 - - [x] Enums
-- - [x] Generic classes
+- - [ ] Generic classes
 - - [ ] Anonymous types
 - Members
 - - [x] Fields
 - - [x] Methods
 - - [ ] Generic methods
-- - [ ] Properties
+- - [x] Properties
+- - [ ] Properties (reflection)
 - - [ ] Events
 - Other
 - - [x] Lambdas
