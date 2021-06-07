@@ -23,6 +23,18 @@ namespace CodeGen.Generators
             return type.GetGenericArguments().Any(t =>
                 ResolveCustomName(t) != null || (t.IsGenericType && CheckIfCustomGenericArgument(t)));
         }
+
+        public static string GetFullName(Type type) {
+            if (type.FullName != null) {
+                return type.FullName;
+            }
+
+            if (type.IsGenericParameter) {
+                return type.Name;
+            }
+
+            return $"{type.Namespace}.{type.Name} {string.Join(',', type.GetGenericArguments().Select(GetFullName))}";
+        }
         
         public static string FixSpecialName(string name) {
             return _specialCharacters

@@ -282,8 +282,20 @@ namespace ResultProject
             return resultType;
         }
 
+        private static string GetFullName(Type type) {
+            if (type.FullName != null) {
+                return type.FullName;
+            }
+
+            if (type.IsGenericParameter) {
+                return type.Name;
+            }
+
+            return $"{type.Namespace}.{type.Name} {string.Join(',', type.GetGenericArguments().Select(GetFullName))}";
+        }
+
         private static Delegate GetGenericMethod(MethodBase methodBase, IReadOnlyDictionary<string, Type> genericTypes, object target) {
-            var methodName = $"{methodBase.DeclaringType.FullName}#{methodBase.Name}";
+            var methodName = $"{methodBase.DeclaringType.FullName}#{methodBase.Name} {string.Join(',', methodBase.GetParameters().Select(p => GetFullName(p.ParameterType)))}";
             var parameters = methodBase.GetParameters().Select(p => ConstructGenericType(p.ParameterType, genericTypes)).ToList();
             var returnType = methodBase is ConstructorInfo || ((MethodInfo)methodBase).ReturnType == typeof(void)
                 ? null
@@ -324,7 +336,7 @@ namespace ResultProject
             if (genericTypes != null) {
                 return GetGenericMethod(methodBase, genericTypes, target);
             }
-            var methodName = $"{methodBase.DeclaringType.FullName}#{methodBase.Name}";
+            var methodName = $"{methodBase.DeclaringType.FullName}#{methodBase.Name} {string.Join(',', methodBase.GetParameters().Select(p => GetFullName(p.ParameterType)))}";
             if (_methods[methodName] is (DynamicMethod method, Type delegateType)) {
                 return method.CreateDelegate(delegateType, target);
             }

@@ -3,12 +3,12 @@ Task list
 - - [x] Classes
 - - [x] Structs
 - - [x] Enums
-- - [ ] Generic classes
+- - [x] Generic classes
 - - [ ] Anonymous types
 - Members
 - - [x] Fields
 - - [x] Methods
-- - [ ] Generic methods
+- - [x] Generic methods
 - - [x] Properties
 - - [ ] Properties (reflection)
 - - [ ] Events
@@ -18,5 +18,6 @@ Task list
 - - [x] Instanciate generic classes
 - - [x] Interface inheritance
 - - [x] Interface inheritance with same method name
+- - [x] Method overloading
 - - [ ] Reflection
 - - [ ] Attributes

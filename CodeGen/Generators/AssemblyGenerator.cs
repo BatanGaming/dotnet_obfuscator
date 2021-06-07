@@ -310,7 +310,7 @@ namespace CodeGen.Generators
                     var serialized = JsonConvert.SerializeObject(body);
                     var bytes = Encoding.ASCII.GetBytes(serialized);
                     var encoded = Convert.ToBase64String(bytes);
-                    builder.AppendLine($@"{{@""{method.DeclaringType.FullName}#{method.Name}"", @""{encoded}""}},");
+                    builder.AppendLine($@"{{@""{method.DeclaringType.FullName}#{method.Name} {string.Join(',', method.GetParameters().Select(p => CommonGenerator.GetFullName(p.ParameterType)))}"", @""{encoded}""}},");
                 }
             }
             WriteSection("$SERIALIZED_METHODS", builder.ToString());
