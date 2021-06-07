@@ -16,5 +16,9 @@ namespace CodeGen.Extensions
         public static bool IsSpecialName(this MethodBase method, char[] SpecialCharacters) {
             return method.IsSpecialName || method.Name.IndexOfAny(SpecialCharacters) != -1;
         }
+        
+        public static bool IsSpecialName(this PropertyInfo property, char[] SpecialCharacters) {
+            return property.IsSpecialName || property.Name.IndexOfAny(SpecialCharacters) != -1;
+        }
     }
 }

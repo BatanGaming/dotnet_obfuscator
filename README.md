@@ -4,13 +4,14 @@ Task list
 - - [x] Structs
 - - [x] Enums
 - - [x] Generic classes
-- - [ ] Anonymous types
+- - [x] Anonymous types
+- - [ ] Delegates
 - Members
 - - [x] Fields
 - - [x] Methods
 - - [x] Generic methods
 - - [x] Properties
-- - [ ] Properties (reflection)
+- - [x] Properties (reflection)
 - - [ ] Events
 - Other
 - - [x] Lambdas
@@ -19,5 +20,5 @@ Task list
 - - [x] Interface inheritance
 - - [x] Interface inheritance with same method name
 - - [x] Method overloading
-- - [ ] Reflection
+- - [ ] Reflection (need more testing)
 - - [ ] Attributes

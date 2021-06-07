@@ -45,8 +45,11 @@ namespace CodeGen.Generators
             if (_method.IsGenericMethodDefinition || _method.DeclaringType.IsGenericTypeDefinition) {
                 builder.AppendLine(
                     $@"{ilGeneratorName}.Emit(OpCodes.Newobj, typeof(Dictionary<string, Type>).GetConstructor(Type.EmptyTypes));");
-                
-                foreach (var genericParameter in _method.GetGenericArguments().Concat(_method.DeclaringType.GetGenericArguments())) {
+                var genericArguments = _method.DeclaringType.GetGenericArguments();
+                if (_method is MethodInfo) {
+                    genericArguments = genericArguments.Concat(_method.GetGenericArguments()).ToArray();
+                }
+                foreach (var genericParameter in genericArguments) {
                     builder.AppendLine($@"{ilGeneratorName}.Emit(OpCodes.Dup);");
                     builder.AppendLine($@"{ilGeneratorName}.Emit(OpCodes.Ldstr, ""{genericParameter.Namespace}.{genericParameter.Name}"");");
                     builder.AppendLine($@"{ilGeneratorName}.Emit(OpCodes.Ldtoken, {CommonGenerator.ResolveCustomName(genericParameter)});");

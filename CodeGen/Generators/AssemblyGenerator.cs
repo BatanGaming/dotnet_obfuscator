@@ -22,6 +22,7 @@ namespace CodeGen.Generators
                 File.Delete(ResultFile);
             }
             File.Copy("Program.cs", ResultFile);
+            WriteSection("$ASSEMBLY_NAME", _assembly.GetName().Name);
         }
 
         private static void WriteSection(string sectionKey, string text) {
@@ -158,6 +159,27 @@ namespace CodeGen.Generators
             }
             WriteSection("$METHODS_DEFINITIONS", builder.ToString());
         }
+
+        private void GenerateProperties() {
+            var builder = new StringBuilder();
+            foreach (var type in _assembly.DefinedTypes) {
+                foreach (var property in type.GetAllProperties()) {
+                    var propertyName = CommonGenerator.GeneratePropertyGeneratorName(property);
+                    builder.AppendLine(
+                        @$"var {propertyName} = {CommonGenerator.ResolveCustomName(property.DeclaringType)}.DefineProperty(""{property.Name}"", {AttributesGenerator.Generate(property.Attributes)}, {CommonGenerator.ResolveTypeName(property.PropertyType)}, null);");
+                    if (property.CanWrite) {
+                        builder.AppendLine(
+                            $@"{propertyName}.SetSetMethod({CommonGenerator.ResolveCustomName(property.SetMethod)});");
+                    }
+
+                    if (property.CanRead) {
+                        builder.AppendLine(
+                            $@"{propertyName}.SetGetMethod({CommonGenerator.ResolveCustomName(property.GetMethod)});");
+                    }
+                }
+            }
+            WriteSection("$PROPERTIES", builder.ToString());
+        }
         
         private void SetGenericConstraintsForMethods() {
             var builder = new StringBuilder();
@@ -205,7 +227,7 @@ namespace CodeGen.Generators
             var builder = new StringBuilder();
             foreach (var type in _assembly.DefinedTypes) {
                 foreach (var method in type
-                    .GetAllMethods().Concat(type.GetAllConstructors().Cast<MethodBase>())
+                    .GetAllMethods()
                     .Where(m => m.GetParameters().Length != 0)) {
                     builder.AppendLine(
                         $"{CommonGenerator.ResolveCustomName(method)}.SetParameters({string.Join(',', method.GetParameters().Select(p => CommonGenerator.ResolveTypeName(p.ParameterType)))});");
@@ -339,6 +361,7 @@ namespace CodeGen.Generators
             GenerateEnumConstants();
             GenerateConstructorsDefinitions();
             GenerateMethodsDefinitions();
+            GenerateProperties();
             SetGenericConstraintsForMethods();
             SetParameters();
             SetReturnTypes();

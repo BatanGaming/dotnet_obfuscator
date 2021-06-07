@@ -22,5 +22,10 @@ namespace CodeGen.Extensions
             return type.GetFields(BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic |
                                    BindingFlags.Instance | BindingFlags.Static);
         }
+        
+        public static PropertyInfo[] GetAllProperties(this Type type) {
+            return type.GetProperties(BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic |
+                                  BindingFlags.Instance | BindingFlags.Static);
+        }
     }
 }

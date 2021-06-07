@@ -15,6 +15,7 @@ namespace CodeGen.Generators
         private static readonly Dictionary<FieldInfo, string> _fieldsBuildersNames = new Dictionary<FieldInfo, string>();
         private static readonly Dictionary<MethodBase, string> _methodsDefinitionsBuildersNames = new Dictionary<MethodBase, string>();
         private static readonly Dictionary<MethodBase, string> _methodsBodiesBuildersNames = new Dictionary<MethodBase, string>();
+        private static readonly Dictionary<PropertyInfo, string> _propertiesBuildersNames = new Dictionary<PropertyInfo, string>();
 
         private static int _duplicates = 0;
         private static readonly char[] _specialCharacters = {'.', '<', '>', '`'};
@@ -90,6 +91,21 @@ namespace CodeGen.Generators
             }
             _typesBuildersNames[type] = resultName;
             return _typesBuildersNames[type];
+        }
+
+        public static string GeneratePropertyGeneratorName(PropertyInfo property) {
+            var name = property.IsSpecialName(_specialCharacters)
+                ? FixSpecialName(property.Name)
+                : property.Name;
+            var declaringTypeName = property.DeclaringType.IsSpecialName(_specialCharacters)
+                ? FixSpecialName(property.DeclaringType.Name)
+                : property.DeclaringType.Name;
+            var resultName = $"{declaringTypeName}_property_{name}_builder";
+            if (_typesBuildersNames.ContainsValue(resultName)) {
+                resultName += $"_{_duplicates++}";
+            }
+            _propertiesBuildersNames[property] = resultName;
+            return _propertiesBuildersNames[property];
         }
 
         public static string GenerateFieldGeneratorName(FieldInfo field) {

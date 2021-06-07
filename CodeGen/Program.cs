@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Text;
 using Newtonsoft.Json;
+using System.Text.RegularExpressions;
 
 namespace ResultProject
 {
@@ -63,6 +64,8 @@ namespace ResultProject
             public bool IsPointer { get; set; }
         }
         
+        private static Assembly _currentAssembly;
+        
         private static readonly Dictionary<string, object> _methods = new Dictionary<string, object> {
             $SERIALIZED_METHODS
         };
@@ -73,7 +76,7 @@ namespace ResultProject
         
         private static Type GetTypeByName(string name) {
             var assemblies = AppDomain.CurrentDomain.GetAssemblies();
-            foreach (var assembly in assemblies) {
+            foreach (var assembly in assemblies.Except(new [] {_currentAssembly})) {
                 var foundedType = assembly.GetType(name);
                 if (foundedType != null) {
                     return foundedType;
@@ -385,6 +388,7 @@ namespace ResultProject
         }
 
         public static void Main(string[] args) {
+            _currentAssembly = Assembly.GetExecutingAssembly();
             LoadAssemblies();
 
             var assembly_name = new AssemblyName("$ASSEMBLY_NAME");
@@ -406,10 +410,9 @@ namespace ResultProject
             $ENUM_CONSTANTS
                 
             $CONSTRUCTORS_DEFINITIONS
-
-
-            $METHODS_DEFINITIONS
                 
+            $METHODS_DEFINITIONS
+
             $GENERIC_CONSTRAINTS_METHODS
                 
             $METHODS_PARAMETERS
@@ -418,10 +421,10 @@ namespace ResultProject
                 
             $METHODS_OVERRIDING
                 
-            
             $METHODS_BODIES
                 
-
+            $PROPERTIES
+                
             $CREATED_TYPES
         }
     }
