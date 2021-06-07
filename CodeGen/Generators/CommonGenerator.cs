@@ -25,7 +25,9 @@ namespace CodeGen.Generators
         }
         
         public static string FixSpecialName(string name) {
-            return _specialCharacters.Aggregate(name, (current, character) => current.Replace(character.ToString(), ""));
+            return _specialCharacters
+                .Aggregate(name, (current, character) => current.Replace(character.ToString(), ""))
+                .Replace("[]", "Array");
         }
 
         public static string ResolveTypeName(Type type) {

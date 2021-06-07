@@ -10,7 +10,7 @@ namespace CodeGen.Generators
 {
     public class SerializableMethodBodyGenerator
     {
-        private readonly MethodInfo _method;
+        private readonly MethodBase _method;
         private readonly Module _module;
 
         private object SafeResolveToken(int token) {
@@ -40,12 +40,14 @@ namespace CodeGen.Generators
         }
 
         private object ResolveToken(int token, OperandType operandType) {
+            var declaringTypeGenerics = _method.DeclaringType.GetGenericArguments();
+            var methodGenerics = _method is ConstructorInfo ? null : _method.GetGenericArguments();
             return operandType switch {
-                OperandType.InlineMethod => _module.ResolveMethod(token, _method.DeclaringType.GetGenericArguments(), _method.GetGenericArguments()),
-                OperandType.InlineField => _module.ResolveField(token, _method.DeclaringType.GetGenericArguments(), _method.GetGenericArguments()),
+                OperandType.InlineMethod => _module.ResolveMethod(token, declaringTypeGenerics, methodGenerics),
+                OperandType.InlineField => _module.ResolveField(token, declaringTypeGenerics, methodGenerics),
                 OperandType.InlineSig => _module.ResolveSignature(token),
                 OperandType.InlineString => _module.ResolveString(token),
-                OperandType.InlineType => _module.ResolveType(token, _method.DeclaringType.GetGenericArguments(), _method.GetGenericArguments()),
+                OperandType.InlineType => _module.ResolveType(token, declaringTypeGenerics, methodGenerics),
                 OperandType.InlineTok => SafeResolveToken(token),
                 var x when
                     x == OperandType.ShortInlineI ||
@@ -89,7 +91,7 @@ namespace CodeGen.Generators
             };
         }
 
-        public SerializableMethodBodyGenerator(MethodInfo method) {
+        public SerializableMethodBodyGenerator(MethodBase method) {
             _method = method;
             _module = _method.Module;
         }

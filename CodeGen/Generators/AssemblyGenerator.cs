@@ -4,10 +4,9 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
-using System.Text.Json;
+using CodeGen.Extensions;
 using CodeGen.Generators.MembersGenerators;
 using CodeGen.Generators.TypesGenerators;
-using CodeGen.Models;
 using CodeGen.Templates;
 using Newtonsoft.Json;
 
@@ -127,7 +126,7 @@ namespace CodeGen.Generators
         private void GenerateFields() {
             var builder = new StringBuilder();
             foreach (var type in _assembly.DefinedTypes) {
-                foreach (var field in type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.DeclaredOnly).Where(f => f.DeclaringType == type)) {
+                foreach (var field in type.GetAllFields().Where(f => f.DeclaringType == type)) {
                     var code = new FieldGenerator(field).Generate();
                     builder.AppendLine(
                         $"var {CommonGenerator.GenerateFieldGeneratorName(field)} = {CommonGenerator.ResolveCustomName(type)}.{code};");
@@ -139,7 +138,7 @@ namespace CodeGen.Generators
         private void GenerateConstructorsDefinitions() {
             var builder = new StringBuilder();
             foreach (var type in _assembly.DefinedTypes) {
-                foreach (var constructor in type.GetConstructors(BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static)) {
+                foreach (var constructor in type.GetAllConstructors()) {
                     var code = new ConstructorDefinitionGenerator(constructor).Generate();
                     builder.AppendLine(
                         $"var {CommonGenerator.GenerateMethodDefinitionGeneratorName(constructor)} = {CommonGenerator.ResolveCustomName(type)}.{code};");
@@ -148,23 +147,10 @@ namespace CodeGen.Generators
             WriteSection("$CONSTRUCTORS_DEFINITIONS", builder.ToString());
         }
 
-        private void GenerateConstructorsBodies() {
-            var builder = new StringBuilder();
-            foreach (var type in _assembly.DefinedTypes) {
-                foreach (var constructor in type.GetConstructors(BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static)) {
-                    var code = new ConstructorBodyGenerator(constructor).Generate();
-                    builder.AppendLine(
-                        $"var {CommonGenerator.ResolveMethodBodyBuilderName(constructor)} = {CommonGenerator.ResolveCustomName(constructor)}.GetILGenerator();");
-                    builder.AppendLine(code);
-                }
-            }
-            WriteSection("$CONSTRUCTORS_BODIES", builder.ToString());
-        }
-        
         private void GenerateMethodsDefinitions() {
             var builder = new StringBuilder();
             foreach (var type in _assembly.DefinedTypes) {
-                foreach (var method in type.GetMethods(BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static)) {
+                foreach (var method in type.GetAllMethods()) {
                     var code = new MethodDefinitionGenerator(method).Generate();
                     builder.AppendLine(
                         $"var {CommonGenerator.GenerateMethodDefinitionGeneratorName(method)} = {CommonGenerator.ResolveCustomName(type)}.{code};");
@@ -176,7 +162,7 @@ namespace CodeGen.Generators
         private void SetGenericConstraintsForMethods() {
             var builder = new StringBuilder();
             foreach (var type in _assembly.DefinedTypes) {
-                foreach (var method in type.GetMethods(BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static).Where(m => m.IsGenericMethodDefinition)) {
+                foreach (var method in type.GetAllMethods().Where(m => m.IsGenericMethodDefinition)) {
                     var arguments = method.GetGenericArguments().Where(a => a.IsGenericParameter).ToList();
                     var argumentsName = arguments.Select(a => $@"""{a.Name}""");
                     var methodName = CommonGenerator.ResolveCustomName(method);
@@ -219,8 +205,7 @@ namespace CodeGen.Generators
             var builder = new StringBuilder();
             foreach (var type in _assembly.DefinedTypes) {
                 foreach (var method in type
-                    .GetMethods(BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic |
-                                BindingFlags.Instance | BindingFlags.Static)
+                    .GetAllMethods().Concat(type.GetAllConstructors().Cast<MethodBase>())
                     .Where(m => m.GetParameters().Length != 0)) {
                     builder.AppendLine(
                         $"{CommonGenerator.ResolveCustomName(method)}.SetParameters({string.Join(',', method.GetParameters().Select(p => CommonGenerator.ResolveTypeName(p.ParameterType)))});");
@@ -233,8 +218,7 @@ namespace CodeGen.Generators
             var builder = new StringBuilder();
             foreach (var type in _assembly.DefinedTypes) {
                 foreach (var method in type
-                    .GetMethods(BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic |
-                                BindingFlags.Instance | BindingFlags.Static)
+                    .GetAllMethods()
                     .Where(m => m.ReturnType != typeof(void))) {
                     builder.AppendLine(
                         $"{CommonGenerator.ResolveCustomName(method)}.SetReturnType({CommonGenerator.ResolveTypeName(method.ReturnType)});");
@@ -265,7 +249,13 @@ namespace CodeGen.Generators
         private void GenerateMethodBodies() {
             var builder = new StringBuilder();
             foreach (var type in _assembly.DefinedTypes.Where(t => !t.IsInterface)) {
-                foreach (var method in type.GetMethods(BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static)) {
+                foreach (var method in type
+                    .GetAllMethods()
+                    .Concat(type
+                        .GetAllConstructors()
+                        .Cast<MethodBase>()
+                    )
+                ) {
                     var code = new MethodBodyGenerator(method).Generate();
                     builder.AppendLine(
                         $@"var {CommonGenerator.ResolveMethodBodyBuilderName(method)} = {CommonGenerator.ResolveCustomName(method)}.GetILGenerator();");
@@ -278,10 +268,30 @@ namespace CodeGen.Generators
 
         private void CreateTypes() {
             var builder = new StringBuilder();
-            foreach (var type in _assembly.DefinedTypes) {
+            var alreadyCreatedTypes = new List<Type>();
+            var types = new Stack<Type>(_assembly.DefinedTypes);
+            while (types.Count != 0) {
+                var type = types.Pop();
+                if (alreadyCreatedTypes.Contains(type)) {
+                    alreadyCreatedTypes.Remove(type);
+                    continue;
+                }
+                if (CommonGenerator.ResolveCustomName(type.BaseType) != null && !alreadyCreatedTypes.Contains(type.BaseType)) {
+                    types.Push(type);
+                    types.Push(type.BaseType);
+                    continue;
+                }
+
+                if (type.IsNested && CommonGenerator.ResolveCustomName(type.DeclaringType) != null &&
+                    !alreadyCreatedTypes.Contains(type.DeclaringType)) {
+                    types.Push(type);
+                    types.Push(type.DeclaringType);
+                    continue;
+                }
                 var generatorName = CommonGenerator.ResolveCustomName(type);
                 builder.AppendLine(
                     $"var {generatorName.Replace("_builder", "")} = {generatorName}.{(type.IsEnum && !type.IsNested ? "CreateTypeInfo()" : "CreateType()")};");
+                alreadyCreatedTypes.Add(type);
             }
 
             if (_assembly.EntryPoint != null) {
@@ -295,7 +305,7 @@ namespace CodeGen.Generators
         private void SerializeMethodBodies() {
             var builder = new StringBuilder();
             foreach (var type in _assembly.DefinedTypes.Where(t => !t.IsInterface)) {
-                foreach (var method in type.GetMethods(BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static)) {
+                foreach (var method in type.GetAllMethods().Concat(type.GetAllConstructors().Cast<MethodBase>())) {
                     var body = new SerializableMethodBodyGenerator(method).Generate();
                     var serialized = JsonConvert.SerializeObject(body);
                     var bytes = Encoding.ASCII.GetBytes(serialized);
@@ -328,7 +338,6 @@ namespace CodeGen.Generators
             GenerateFields();
             GenerateEnumConstants();
             GenerateConstructorsDefinitions();
-            GenerateConstructorsBodies();
             GenerateMethodsDefinitions();
             SetGenericConstraintsForMethods();
             SetParameters();

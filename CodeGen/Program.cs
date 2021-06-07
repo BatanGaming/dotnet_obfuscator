@@ -282,22 +282,22 @@ namespace ResultProject
             return resultType;
         }
 
-        private static Delegate GetGenericMethod(MethodInfo methodInfo, IReadOnlyDictionary<string, Type> genericTypes, object target) {
-            var methodName = $"{methodInfo.DeclaringType.FullName}#{methodInfo.Name}";
-            var parameters = methodInfo.GetParameters().Select(p => ConstructGenericType(p.ParameterType, genericTypes)).ToList();
-            var returnType = methodInfo.ReturnType == typeof(void)
+        private static Delegate GetGenericMethod(MethodBase methodBase, IReadOnlyDictionary<string, Type> genericTypes, object target) {
+            var methodName = $"{methodBase.DeclaringType.FullName}#{methodBase.Name}";
+            var parameters = methodBase.GetParameters().Select(p => ConstructGenericType(p.ParameterType, genericTypes)).ToList();
+            var returnType = methodBase is ConstructorInfo || ((MethodInfo)methodBase).ReturnType == typeof(void)
                 ? null
-                : ConstructGenericType(methodInfo.ReturnType, genericTypes);
+                : ConstructGenericType(((MethodInfo)methodBase).ReturnType, genericTypes);
             var delegateType = CloseDelegateType(
                 GetDelegateType(parameters.Count, returnType != null),
                 (returnType == null ? parameters : parameters.Concat(new[] {returnType})).ToArray()
                 );
-            var declaringType = ConstructGenericType(methodInfo.DeclaringType, genericTypes);
-            if (!methodInfo.IsStatic) {
+            var declaringType = ConstructGenericType(methodBase.DeclaringType, genericTypes);
+            if (!methodBase.IsStatic) {
                 parameters.Insert(0, declaringType);
             }
             var method = new DynamicMethod(
-                methodInfo.Name, 
+                methodBase.Name, 
                 returnType, 
                 parameters.ToArray(),
                 target?.GetType() ?? declaringType,
@@ -320,32 +320,32 @@ namespace ResultProject
             return method.CreateDelegate(delegateType, target);
         }
 
-        public static Delegate GetMethod(MethodInfo methodInfo, Dictionary<string, Type> genericTypes, object target) {
+        public static Delegate GetMethod(MethodBase methodBase, Dictionary<string, Type> genericTypes, object target) {
             if (genericTypes != null) {
-                return GetGenericMethod(methodInfo, genericTypes, target);
+                return GetGenericMethod(methodBase, genericTypes, target);
             }
-            var methodName = $"{methodInfo.DeclaringType.FullName}#{methodInfo.Name}";
+            var methodName = $"{methodBase.DeclaringType.FullName}#{methodBase.Name}";
             if (_methods[methodName] is (DynamicMethod method, Type delegateType)) {
                 return method.CreateDelegate(delegateType, target);
             }
 
-            var parameters = methodInfo.GetParameters().Select(p => p.ParameterType).ToList();
-            var hasReturnType = methodInfo.ReturnType != typeof(void);
+            var parameters = methodBase.GetParameters().Select(p => p.ParameterType).ToList();
+            var hasReturnType = methodBase is MethodInfo info && info.ReturnType != typeof(void);
             delegateType = CloseDelegateType(
                 GetDelegateType(parameters.Count, hasReturnType),
                 (hasReturnType
-                    ? parameters.Concat(new[] {methodInfo.ReturnType})
+                    ? parameters.Concat(new[] {((MethodInfo)methodBase).ReturnType})
                     : parameters).ToArray()
             );
             
-            if (!methodInfo.IsStatic) {
-                parameters.Insert(0, methodInfo.DeclaringType);
+            if (!methodBase.IsStatic) {
+                parameters.Insert(0, methodBase.DeclaringType);
             }
             method = new DynamicMethod(
-                methodInfo.Name, 
-                methodInfo.ReturnType, 
+                methodBase.Name, 
+                hasReturnType ? ((MethodInfo)methodBase).ReturnType : null, 
                 parameters.ToArray(),
-                target?.GetType() ?? methodInfo.DeclaringType,
+                target?.GetType() ?? methodBase.DeclaringType,
                 false
             );
             var encodedMethodBody = _methods[methodName] as string;
@@ -394,10 +394,8 @@ namespace ResultProject
             $ENUM_CONSTANTS
                 
             $CONSTRUCTORS_DEFINITIONS
-                
-            $CONSTRUCTORS_BODIES
-                
-            
+
+
             $METHODS_DEFINITIONS
                 
             $GENERIC_CONSTRAINTS_METHODS

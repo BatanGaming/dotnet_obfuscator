@@ -7,19 +7,19 @@ namespace CodeGen.Generators
 {
     public class MethodBodyGenerator
     {
-        private readonly MethodInfo _method;
+        private readonly MethodBase _method;
 
-        public MethodBodyGenerator(MethodInfo method) {
+        public MethodBodyGenerator(MethodBase method) {
             _method = method;
         }
 
         public string Generate() {
             var parameters = _method.GetParameters().Select(p => p.ParameterType).ToList();
-            var hasReturnType = _method.ReturnType != typeof(void);
+            var hasReturnType = _method is MethodInfo info && info.ReturnType != typeof(void);
             var delegateType = CommonGenerator.CloseDelegateType(
                 CommonGenerator.GetDelegateType(parameters.Count, hasReturnType),
                 (hasReturnType
-                    ? parameters.Concat(new[] {_method.ReturnType})
+                    ? parameters.Concat(new[] {((MethodInfo) _method).ReturnType})
                     : parameters).ToArray()
             );
             var genericTypeName = delegateType.Name.StartsWith("Func")
@@ -33,7 +33,7 @@ namespace CodeGen.Generators
 
             var ilGeneratorName = CommonGenerator.GenerateMethodBodyGeneratorName(_method);
             var builder = new StringBuilder();
-            var delegateTypeName = $"delegate_type_{CommonGenerator.FixSpecialName(_method.DeclaringType.Name)}_{CommonGenerator.FixSpecialName(_method.Name)}_{CommonGenerator.FixSpecialName(_method.ReturnType.FullName ?? _method.ReturnType.Name)}";
+            var delegateTypeName = $"delegate_type_{CommonGenerator.FixSpecialName(_method.DeclaringType.Name)}_{CommonGenerator.FixSpecialName(_method.Name)}_{string.Join('_', _method.GetParameters().Select(p => CommonGenerator.FixSpecialName(p.ParameterType.Name)))}";
             var closedDelegateTypeName = delegateTypeName;
             builder.AppendLine($"var {delegateTypeName} = typeof({genericTypeName});");
             if (makeGenericString != null) {
@@ -63,7 +63,7 @@ namespace CodeGen.Generators
                 ? $"{ilGeneratorName}.Emit(OpCodes.Ldnull);"
                 : $"{ilGeneratorName}.Emit(OpCodes.Ldarg_0);"
             );
-            builder.AppendLine(@$"{ilGeneratorName}.Emit(OpCodes.Call, typeof(Program).GetMethod(""GetMethod"", new [] {{typeof(MethodInfo), typeof(Dictionary<string, Type>), typeof(object)}}));");
+            builder.AppendLine(@$"{ilGeneratorName}.Emit(OpCodes.Call, typeof(Program).GetMethod(""GetMethod"", new [] {{typeof(MethodBase), typeof(Dictionary<string, Type>), typeof(object)}}));");
 
             builder.AppendLine($"{ilGeneratorName}.Emit(OpCodes.Castclass, {closedDelegateTypeName});");
             for (var i = 0; i < parameters.Count; ++i) {
