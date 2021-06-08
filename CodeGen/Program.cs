@@ -388,7 +388,6 @@ namespace ResultProject
                 return GetGenericMethod(methodBase, genericTypes, target);
             }
             var methodName = $"{methodBase.DeclaringType.FullName}#{methodBase.Name} {string.Join(',', methodBase.GetParameters().Select(p => GetFullName(p.ParameterType)))}";
-            Console.WriteLine(methodName);
             if (!_methods.ContainsKey(methodName)) {
                 methodName = $"{methodBase.DeclaringType.Namespace}.{methodBase.DeclaringType.Name.Replace(@"\", "")}#{methodBase.Name} {string.Join(',', methodBase.GetParameters().Select(p => GetFullName(p.ParameterType)))}";
             }
@@ -458,38 +457,55 @@ namespace ResultProject
             var assembly_name = new AssemblyName("$ASSEMBLY_NAME");
             var assembly_builder = AssemblyBuilder.DefineDynamicAssembly(assembly_name, AssemblyBuilderAccess.Run);
             var module_builder = assembly_builder.DefineDynamicModule(assembly_name.Name + ".dll");
-                
+
+            #region Types
             $TYPES
-                
+            #endregion
+            #region NestedTypes
             $NESTED_TYPES
-                
+            #endregion
+            #region Parents
             $PARENTS
-
+            #endregion
+            #region GenericConstraintsTypes
             $GENERIC_CONSTRAINTS_TYPES
-
+            #endregion
+            #region InterfacesImplementations
             $INTERFACES_IMPLEMENTATIONS
-                
+            #endregion
+            #region Fields
             $FIELDS
-                
+            #endregion
+            #region EnumConstants
             $ENUM_CONSTANTS
-                
+            #endregion
+            #region ConstructorsDefinitions    
             $CONSTRUCTORS_DEFINITIONS
-                
+            #endregion
+            #region MethodsDefinitions
             $METHODS_DEFINITIONS
-
+            #endregion
+            #region GenericConstraintsMethods
             $GENERIC_CONSTRAINTS_METHODS
-                
+            #endregion
+            #region MethodsParameters
             $METHODS_PARAMETERS
-                
+            #endregion
+            #region MethodsReturnTypes
             $METHODS_RETURN_TYPES
-                
+            #endregion
+            #region MethodsOverriding
             $METHODS_OVERRIDING
-                
+            #endregion
+            #region MethodsBodies    
             $METHODS_BODIES
-                
+            #endregion
+            #region Properties
             $PROPERTIES
-                
+            #endregion
+            #region CreatedTypes    
             $CREATED_TYPES
+            #endregion
         }
     }
 }
