@@ -3,14 +3,17 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using CodeGen.Extensions;
+using CodeGen.Templates;
 using Parser;
 
-namespace CodeGen
+namespace CodeGen.Generators
 {
     public class EmitInstructionGenerator
     {
         private readonly Instruction _instruction;
         private readonly Module _module;
+        private readonly Type[] _genericArguments;
         
         private static string FixOpCodeName(string name) {
             if (name == "constrained.") {
@@ -49,15 +52,15 @@ namespace CodeGen
         }
 
         private object ResolveToken() {
-            var token = (int) _instruction.OperandToken!.Value;
+            var token = _instruction.OperandToken!.Value;
             return _instruction.OpCode.OperandType switch
             {
-                OperandType.InlineMethod => _module.ResolveMethod(token),
-                OperandType.InlineField => _module.ResolveField(token),
+                OperandType.InlineMethod => _module.ResolveMethod(token, _genericArguments, null),
+                OperandType.InlineField => _module.ResolveField(token, _genericArguments, null),
                 OperandType.InlineSig => _module.ResolveSignature(token),
                 OperandType.InlineString => _module.ResolveString(token),
-                OperandType.InlineType => _module.ResolveType(token),
-                OperandType.InlineTok =>  SafeResolveToken(token),
+                OperandType.InlineType => _module.ResolveType(token, _genericArguments, null),
+                OperandType.InlineTok => SafeResolveToken(token),
                 var x when
                     x == OperandType.ShortInlineI ||
                     x == OperandType.ShortInlineBrTarget ||
@@ -94,7 +97,7 @@ namespace CodeGen
                 case Type type:
                     return CommonGenerator.ResolveTypeName(type);
                 case FieldInfo field:
-                    return CommonGenerator.ResolveTypeName(field.FieldType);
+                    return CommonGenerator.ResolveCustomName(field);
                 case MethodBase method:
                 {
                     var customName = CommonGenerator.ResolveCustomName(method);
@@ -106,18 +109,21 @@ namespace CodeGen
                         var specialName = method.Name.Split('_');
                         return $@"{CommonGenerator.ResolveTypeName(method.DeclaringType)}.GetProperty(""{specialName[1]}"").{specialName[0].Capitalize()}Method";
                     }
-                    var parameters = method.GetParameters();
-                    return $@"{CommonGenerator.ResolveTypeName(method.DeclaringType)}.{StringifyGetMethod(method)}
-                           {(parameters.Length == 0 ? "Type.EmptyTypes" : $@"new [] {{ {string.Join(',', StringifyMethodParameters(parameters))} }}")})";
+
+                    return new GetMethod {
+                        Method = method,
+                        Type = method.DeclaringType
+                    }.Overwrite();
                 }
                 default:
                     return operand?.ToString();
             }
         }
 
-        public EmitInstructionGenerator(Instruction instruction, Module module) {
+        public EmitInstructionGenerator(Instruction instruction, Module module, Type[] genericArguments) {
             _instruction = instruction;
             _module = module;
+            _genericArguments = genericArguments;
         }
 
         public string Generate(Dictionary<long, string> labels) {

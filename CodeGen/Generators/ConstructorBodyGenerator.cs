@@ -5,33 +5,32 @@ using System.Reflection.Emit;
 using System.Text;
 using Parser;
 
-namespace CodeGen
+namespace CodeGen.Generators
 {
-    public class MethodBodyGenerator
+    public class ConstructorBodyGenerator
     {
-        private readonly MethodInfo _method;
-
+        private readonly ConstructorInfo _constructor;
+        
         private StringBuilder GenerateLocals() {
             var builder = new StringBuilder();
-            var ilGeneratorName = CommonGenerator.ResolveMethodBodyBuilderName(_method);
-            foreach (var localVariable in _method.GetMethodBody().LocalVariables) {
+            var ilGeneratorName = CommonGenerator.ResolveMethodBodyBuilderName(_constructor);
+            foreach (var localVariable in _constructor.GetMethodBody().LocalVariables) {
                 var code = new LocalVariableGenerator(localVariable).Generate();
                 builder.AppendLine($"{ilGeneratorName}.{code};");
             }
 
             return builder;
         }
-        
 
-        public MethodBodyGenerator(MethodInfo method) {
-            _method = method;
+        public ConstructorBodyGenerator(ConstructorInfo constructor) {
+            _constructor = constructor;
         }
 
         public string Generate() {
-            var ilGeneratorName = CommonGenerator.GenerateMethodBodyGeneratorName(_method);
+            var ilGeneratorName = CommonGenerator.GenerateMethodBodyGeneratorName(_constructor);
             var builder = GenerateLocals();
             var labels = new Dictionary<long, string>();
-            var instructions = new IlParser(_method).Parse();
+            var instructions = new IlParser(_constructor).Parse();
             foreach (var branchInstruction in instructions.Where(instruction =>
                 instruction.OpCode.FlowControl == FlowControl.Cond_Branch ||
                 instruction.OpCode.FlowControl == FlowControl.Branch)) {
@@ -39,7 +38,7 @@ namespace CodeGen
                 if (labels.ContainsKey(labelOffset)) {
                     continue;
                 }
-                labels[labelOffset] = $"label_{CommonGenerator.ResolveCustomName(_method)}_{labelOffset}";
+                labels[labelOffset] = $"label_{CommonGenerator.ResolveCustomName(_constructor)}_{labelOffset}";
                 builder.AppendLine($@"var {labels[labelOffset]} = {ilGeneratorName}.DefineLabel();");
             }
 
@@ -48,7 +47,8 @@ namespace CodeGen
                     builder.AppendLine($@"{ilGeneratorName}.MarkLabel({labels[instruction.Offset]});");
                 }
 
-                var code = new EmitInstructionGenerator(instruction, _method.Module).Generate(labels);
+                var genericArguments = _constructor.DeclaringType.GetGenericArguments();
+                var code = new EmitInstructionGenerator(instruction, _constructor.Module, genericArguments).Generate(labels);
                 builder.AppendLine($@"{ilGeneratorName}.{code};");
             }
 

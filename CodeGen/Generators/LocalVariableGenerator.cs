@@ -1,6 +1,6 @@
 using System.Reflection;
 
-namespace CodeGen
+namespace CodeGen.Generators
 {
     public class LocalVariableGenerator
     {
