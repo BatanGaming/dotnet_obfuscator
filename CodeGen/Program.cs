@@ -317,7 +317,7 @@ namespace ResultProject
             else {
                 resultType = resultType.MakeGenericType(type.GenericArguments.Select(t => ConstructGenericType(t, genericTypes)).ToArray());
             }
-        end:
+            end:
             if (type.IsByRef) {
                 return resultType.MakeByRefType();
             }
