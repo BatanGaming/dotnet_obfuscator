@@ -16,8 +16,6 @@ namespace CodeGen.Generators
         private static readonly Dictionary<MethodBase, string> _methodsDefinitionsBuildersNames = new Dictionary<MethodBase, string>();
         private static readonly Dictionary<MethodBase, string> _methodsBodiesBuildersNames = new Dictionary<MethodBase, string>();
         private static readonly Dictionary<PropertyInfo, string> _propertiesBuildersNames = new Dictionary<PropertyInfo, string>();
-
-        private static int _duplicates = 0;
         private static readonly char[] _specialCharacters = {'.', '<', '>', '`'};
 
         public static bool CheckIfCustomGenericArgument(Type type) {
@@ -48,16 +46,17 @@ namespace CodeGen.Generators
             if (custom != null) {
                 return custom;
             }
-            
+            var generic = "";
+            if (CheckIfCustomGenericArgument(type)) {
+                generic = $".MakeGenericType({string.Join(',', type.GetGenericArguments().Select(ResolveTypeName))})";
+                type = type.GetGenericTypeDefinition();
+            }
             var codeDomProvider = CodeDomProvider.CreateProvider("C#");
             var typeReferenceExpression =
                 new CodeTypeReferenceExpression(new CodeTypeReference(type));
             using var writer = new StringWriter();
             codeDomProvider.GenerateCodeFromExpression(typeReferenceExpression, writer, new CodeGeneratorOptions());
-            var generic = "";
-            if (CheckIfCustomGenericArgument(type)) {
-                generic = $".MakeGenericType({string.Join(',', type.GetGenericArguments().Select(ResolveTypeName))})";
-            }
+
             return $"typeof({writer.GetStringBuilder()}){generic}";
         }
 
@@ -85,10 +84,7 @@ namespace CodeGen.Generators
                     : type.IsValueType
                         ? "struct"
                         : "class";
-            var resultName = $"{prefix}_{name}_builder";
-            if (_typesBuildersNames.ContainsValue(resultName)) {
-                resultName += $"_{_duplicates++}";
-            }
+            var resultName = DuplicatesFixer.Fix($"{prefix}_{name}_builder");
             _typesBuildersNames[type] = resultName;
             return _typesBuildersNames[type];
         }
@@ -100,10 +96,7 @@ namespace CodeGen.Generators
             var declaringTypeName = property.DeclaringType.IsSpecialName(_specialCharacters)
                 ? FixSpecialName(property.DeclaringType.Name)
                 : property.DeclaringType.Name;
-            var resultName = $"{declaringTypeName}_property_{name}_builder";
-            if (_typesBuildersNames.ContainsValue(resultName)) {
-                resultName += $"_{_duplicates++}";
-            }
+            var resultName = DuplicatesFixer.Fix($"{declaringTypeName}_property_{name}_builder");
             _propertiesBuildersNames[property] = resultName;
             return _propertiesBuildersNames[property];
         }
@@ -115,10 +108,7 @@ namespace CodeGen.Generators
             var declaringTypeName = field.DeclaringType.IsSpecialName(_specialCharacters)
                 ? FixSpecialName(field.DeclaringType.Name)
                 : field.DeclaringType.Name;
-            var resultName = $"type_{declaringTypeName}_field_{name}_builder";
-            if (_fieldsBuildersNames.ContainsValue(resultName)) {
-                resultName += $"_{_duplicates++}";
-            }
+            var resultName = DuplicatesFixer.Fix($"type_{declaringTypeName}_field_{name}_builder");
             _fieldsBuildersNames[field] = resultName;
             return _fieldsBuildersNames[field];
         }
@@ -130,11 +120,7 @@ namespace CodeGen.Generators
             var declaringTypeName = method.DeclaringType.IsSpecialName(_specialCharacters)
                 ? FixSpecialName(method.DeclaringType.Name)
                 : method.DeclaringType.Name;
-            var resultName = $"type_{declaringTypeName}_method_{name}_builder";
-            if (_methodsDefinitionsBuildersNames.ContainsValue(resultName)) {
-                resultName += $"_{_duplicates++}";
-            }
-            
+            var resultName = DuplicatesFixer.Fix($"type_{declaringTypeName}_method_{name}_builder");
             _methodsDefinitionsBuildersNames[method] = resultName;
             return _methodsDefinitionsBuildersNames[method];
         }
@@ -146,11 +132,8 @@ namespace CodeGen.Generators
             var declaringTypeName = method.DeclaringType.IsSpecialName(_specialCharacters)
                 ? FixSpecialName(method.DeclaringType.Name)
                 : method.DeclaringType.Name;
-            var resultName = $"type_{declaringTypeName}_il_method_{name}_builder";
-            if (_methodsBodiesBuildersNames.ContainsValue(resultName)) {
-                resultName += $"_{_duplicates++}";
-            }
-            
+            var resultName = DuplicatesFixer.Fix($"type_{declaringTypeName}_il_method_{name}_builder");
+
             _methodsBodiesBuildersNames[method] = resultName;
             return _methodsBodiesBuildersNames[method];
         }

@@ -14,9 +14,11 @@ namespace CodeGen.Generators
         private readonly Module _module;
 
         private object SafeResolveToken(int token) {
+            var declaringTypeGenerics = _method.DeclaringType.GetGenericArguments();
+            var methodGenerics = _method is ConstructorInfo ? null : _method.GetGenericArguments();
             object result = null;
             try {
-                result = _module.ResolveType(token);
+                result = _module.ResolveType(token, declaringTypeGenerics, methodGenerics);
             }
             catch (ArgumentException) { }
             if (result != null) {
@@ -24,7 +26,7 @@ namespace CodeGen.Generators
             }
 
             try {
-                result = _module.ResolveMethod(token);
+                result = _module.ResolveMethod(token, declaringTypeGenerics, methodGenerics);
             }
             catch (ArgumentException) { }
             if (result != null) {
@@ -32,7 +34,7 @@ namespace CodeGen.Generators
             }
 
             try {
-                _module.ResolveField(token);
+                _module.ResolveField(token, declaringTypeGenerics, methodGenerics);
             }
             catch (ArgumentException) { }
 
@@ -58,7 +60,15 @@ namespace CodeGen.Generators
             };
         }
 
-        private static OperandTypeInfo? ConvertOperandType(OperandType type) {
+        private static OperandTypeInfo? ConvertOperandType(OperandType type, object operand) {
+            if (type == OperandType.InlineTok) {
+                return operand switch {
+                    Type t => OperandTypeInfo.Type,
+                    FieldInfo f => OperandTypeInfo.Field,
+                    MethodBase m => OperandTypeInfo.Method,
+                    _ => null
+                };
+            }
             return type switch {
                 OperandType.InlineField => OperandTypeInfo.Field,
                 OperandType.InlineMethod => OperandTypeInfo.Method,
@@ -98,7 +108,7 @@ namespace CodeGen.Generators
 
         public SerializableMethodBody Generate() {
             var parser = new IlParser(_method);
-            var p = _method.GetParameters();
+            var a = parser.Parse();
             var instructions = from instruction in parser.Parse()
                 let operand = instruction.OperandToken != null
                     ? ResolveToken(instruction.OperandToken.Value, instruction.OpCode.OperandType)
@@ -107,7 +117,7 @@ namespace CodeGen.Generators
                     ? method.GetParameters().Select(p => GetTypeInfo(p.ParameterType)).ToArray()
                     : null
                 let genericArguments = operand switch {
-                    MethodBase method when !method.Name.Contains("ctor") => method.GetGenericArguments(),
+                    MethodBase method when !method.Name.Contains(".ctor") && !method.Name.Contains(".cctor") => method.GetGenericArguments(),
                     Type type => type.GetGenericArguments(),
                     _ => null
                 }
@@ -120,7 +130,7 @@ namespace CodeGen.Generators
                     Offset = instruction.Offset,
                     Size = instruction.OpCode.Size,
                     OperandInfo = new OperandInfo {
-                        OperandType = ConvertOperandType(instruction.OpCode.OperandType),
+                        OperandType = ConvertOperandType(instruction.OpCode.OperandType, operand),
                         OperandName = ResolveObjectName(operand),
                         Parameters = parameters,
                         GenericTypes = genericArguments?.Select(GetTypeInfo).ToArray(),

@@ -22,7 +22,7 @@ namespace CodeGen.Generators
                 File.Delete(ResultFile);
             }
             File.Copy("Program.cs", ResultFile);
-            WriteSection("$ASSEMBLY_NAME", _assembly.GetName().Name);
+            WriteSection("$ASSEMBLY_NAME", _assembly.FullName);
         }
 
         private static void WriteSection(string sectionKey, string text) {

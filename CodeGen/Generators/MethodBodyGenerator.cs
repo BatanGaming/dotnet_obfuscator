@@ -33,7 +33,7 @@ namespace CodeGen.Generators
 
             var ilGeneratorName = CommonGenerator.GenerateMethodBodyGeneratorName(_method);
             var builder = new StringBuilder();
-            var delegateTypeName = $"delegate_type_{CommonGenerator.FixSpecialName(_method.DeclaringType.Name)}_{CommonGenerator.FixSpecialName(_method.Name)}_{string.Join('_', _method.GetParameters().Select(p => CommonGenerator.FixSpecialName(p.ParameterType.Name)))}";
+            var delegateTypeName = DuplicatesFixer.Fix($"delegate_type_{CommonGenerator.FixSpecialName(_method.DeclaringType.Name)}_{CommonGenerator.FixSpecialName(_method.Name)}_{string.Join('_', _method.GetParameters().Select(p => CommonGenerator.FixSpecialName(p.ParameterType.Name)))}");
             var closedDelegateTypeName = delegateTypeName;
             builder.AppendLine($"var {delegateTypeName} = typeof({genericTypeName});");
             if (makeGenericString != null) {
