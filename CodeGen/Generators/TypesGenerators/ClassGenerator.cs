@@ -4,7 +4,7 @@ using CodeGen.Templates;
 
 namespace CodeGen.Generators.TypesGenerators
 {
-    public class ClassGenerator : Generator
+    public class ClassGenerator
     {
         private readonly Type _type;
 
@@ -14,7 +14,7 @@ namespace CodeGen.Generators.TypesGenerators
 
         public string Generate() {
             return new CommonTypeDefinition {
-                TypeName = _type.FullName,
+                TypeName = CommonGenerator.ResolveCustomName(_type),
                 Attributes = _type.Attributes,
                 IsNested = _type.IsNested
             }.Overwrite();

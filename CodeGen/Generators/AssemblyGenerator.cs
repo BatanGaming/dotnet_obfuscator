@@ -7,6 +7,7 @@ using System.Text;
 using CodeGen.Extensions;
 using CodeGen.Generators.MembersGenerators;
 using CodeGen.Generators.TypesGenerators;
+using CodeGen.Models;
 using CodeGen.Templates;
 using Newtonsoft.Json;
 
@@ -15,6 +16,7 @@ namespace CodeGen.Generators
     public class AssemblyGenerator
     {
         private readonly Assembly _assembly;
+        private readonly string _pathToMethods;
         private const string ResultFile = "ProgramResult.cs";
 
         private void CreateResultFile() {
@@ -63,7 +65,7 @@ namespace CodeGen.Generators
                 var arguments = type.GetGenericArguments().Where(a => a.IsGenericParameter).ToList();
                 var argumentsName = arguments.Select(a => $@"""{a.Name}""");
                 var typeName = CommonGenerator.ResolveCustomName(type);
-                var arrayName = $"{typeName}_generic_parameters";
+                var arrayName = CommonGenerator.GenerateUniqueName();
                 builder.AppendLine(
                     $"var {arrayName} = {typeName}.DefineGenericParameters({string.Join(',', argumentsName)});");
                 for (var i = 0; i < arguments.Count; ++i) {
@@ -128,9 +130,10 @@ namespace CodeGen.Generators
             var builder = new StringBuilder();
             foreach (var type in _assembly.DefinedTypes) {
                 foreach (var field in type.GetAllFields().Where(f => f.DeclaringType == type)) {
+                    var fieldName = CommonGenerator.GenerateFieldGeneratorName(field);
                     var code = new FieldGenerator(field).Generate();
                     builder.AppendLine(
-                        $"var {CommonGenerator.GenerateFieldGeneratorName(field)} = {CommonGenerator.ResolveCustomName(type)}.{code};");
+                        $"var {fieldName} = {CommonGenerator.ResolveCustomName(type)}.{code};");
                 }
             }
             WriteSection("$FIELDS", builder.ToString());
@@ -152,9 +155,10 @@ namespace CodeGen.Generators
             var builder = new StringBuilder();
             foreach (var type in _assembly.DefinedTypes) {
                 foreach (var method in type.GetAllMethods()) {
+                    var methodName = CommonGenerator.GenerateMethodDefinitionGeneratorName(method);
                     var code = new MethodDefinitionGenerator(method).Generate();
                     builder.AppendLine(
-                        $"var {CommonGenerator.GenerateMethodDefinitionGeneratorName(method)} = {CommonGenerator.ResolveCustomName(type)}.{code};");
+                        $"var {methodName} = {CommonGenerator.ResolveCustomName(type)}.{code};");
                 }
             }
             WriteSection("$METHODS_DEFINITIONS", builder.ToString());
@@ -166,7 +170,7 @@ namespace CodeGen.Generators
                 foreach (var property in type.GetAllProperties()) {
                     var propertyName = CommonGenerator.GeneratePropertyGeneratorName(property);
                     builder.AppendLine(
-                        @$"var {propertyName} = {CommonGenerator.ResolveCustomName(property.DeclaringType)}.DefineProperty(""{property.Name}"", {AttributesGenerator.Generate(property.Attributes)}, {CommonGenerator.ResolveTypeName(property.PropertyType)}, null);");
+                        @$"var {propertyName} = {CommonGenerator.ResolveCustomName(property.DeclaringType)}.DefineProperty(""{CommonGenerator.GenerateUniqueName()}"", {AttributesGenerator.Generate(property.Attributes)}, {CommonGenerator.ResolveTypeName(property.PropertyType)}, null);");
                     if (property.CanWrite) {
                         builder.AppendLine(
                             $@"{propertyName}.SetSetMethod({CommonGenerator.ResolveCustomName(property.SetMethod)});");
@@ -188,7 +192,7 @@ namespace CodeGen.Generators
                     var arguments = method.GetGenericArguments().Where(a => a.IsGenericParameter).ToList();
                     var argumentsName = arguments.Select(a => $@"""{a.Name}""");
                     var methodName = CommonGenerator.ResolveCustomName(method);
-                    var arrayName = $"{methodName}_generic_parameters";
+                    var arrayName = CommonGenerator.GenerateUniqueName();
                     builder.AppendLine(
                         $"var {arrayName} = {methodName}.DefineGenericParameters({string.Join(',', argumentsName)});");
                     for (var i = 0; i < arguments.Count; ++i) {
@@ -312,30 +316,44 @@ namespace CodeGen.Generators
                 }
                 var generatorName = CommonGenerator.ResolveCustomName(type);
                 builder.AppendLine(
-                    $"var {generatorName.Replace("_builder", "")} = {generatorName}.{(type.IsEnum && !type.IsNested ? "CreateTypeInfo()" : "CreateType()")};");
+                    $"var {CommonGenerator.GenerateUniqueName()} = {generatorName}.{(type.IsEnum && !type.IsNested ? "CreateTypeInfo()" : "CreateType()")};");
                 alreadyCreatedTypes.Add(type);
             }
 
             if (_assembly.EntryPoint != null) {
                 var entryPoint = _assembly.EntryPoint;
                 builder.AppendLine(
-                    $@"{CommonGenerator.ResolveCustomName(entryPoint.DeclaringType)}.GetMethod(""{entryPoint.Name}"").Invoke(null, new [] {{args}});");
+                    $@"{CommonGenerator.ResolveCustomName(entryPoint.DeclaringType)}.GetMethod(""{CommonGenerator.ResolveCustomName(entryPoint)}"").Invoke(null, new [] {{args}});");
             }
             WriteSection("$CREATED_TYPES", builder.ToString());
         }
 
         private void SerializeMethodBodies() {
-            var builder = new StringBuilder();
+            var encodedMethods = new Dictionary<string, string>();
+            var types = _assembly.DefinedTypes.ToList();
+            var methods = types.SelectMany(t => t.GetAllMethods()).ToList();
             foreach (var type in _assembly.DefinedTypes.Where(t => !t.IsInterface)) {
                 foreach (var method in type.GetAllMethods().Concat(type.GetAllConstructors().Cast<MethodBase>())) {
                     var body = new SerializableMethodBodyGenerator(method).Generate();
+                    foreach (var instruction in body.Instructions.Where(i => i.OperandInfo.OperandType is OperandTypeInfo.String)) {
+                        var typeLiteral = types.FirstOrDefault(t => t.Name == instruction.OperandInfo.OperandName);
+                        if (typeLiteral != null) {
+                            instruction.OperandInfo.OperandName = CommonGenerator.ResolveCustomName(typeLiteral);
+                        }
+
+                        var methodLiteral = methods.FirstOrDefault(t => t.Name == instruction.OperandInfo.OperandName);
+                        if (methodLiteral != null) {
+                            instruction.OperandInfo.OperandName = CommonGenerator.ResolveCustomName(methodLiteral);
+                        }
+                    }
                     var serialized = JsonConvert.SerializeObject(body);
                     var bytes = Encoding.ASCII.GetBytes(serialized);
                     var encoded = Convert.ToBase64String(bytes);
-                    builder.AppendLine($@"{{@""{method.DeclaringType.FullName}#{method.Name} {string.Join(',', method.GetParameters().Select(p => CommonGenerator.GetFullName(p.ParameterType)))}"", @""{encoded}""}},");
+                    encodedMethods[$"{CommonGenerator.ResolveCustomName(method.DeclaringType)}#{CommonGenerator.ResolveCustomName(method)}"] = encoded;
                 }
             }
-            WriteSection("$SERIALIZED_METHODS", builder.ToString());
+            File.WriteAllText(_pathToMethods, JsonConvert.SerializeObject(encodedMethods));
+            WriteSection("$PATH_TO_METHODS", _pathToMethods);
         }
         
         private void WriteReferencedAssemblies() {
@@ -346,8 +364,9 @@ namespace CodeGen.Generators
             WriteSection("$REFERENCED_ASSEMBLIES", builder.ToString());
         }
 
-        public AssemblyGenerator(Assembly assembly) {
+        public AssemblyGenerator(Assembly assembly, string pathToMethods = null) {
             _assembly = assembly;
+            _pathToMethods = pathToMethods ?? @"methods.json";
         }
 
         public void GenerateAssembly() {

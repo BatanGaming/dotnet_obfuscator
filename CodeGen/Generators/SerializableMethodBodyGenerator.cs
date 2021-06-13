@@ -2,6 +2,7 @@
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using CodeGen.Extensions;
 using CodeGen.Models;
 using Parser;
 using TypeInfo = CodeGen.Models.TypeInfo;
@@ -83,10 +84,36 @@ namespace CodeGen.Generators
 
         private static string ResolveObjectName(object obj) {
             return obj switch {
-                Type type => type.FullName ?? $"{type.Namespace}.{type.Name}",
-                string str => str,
-                FieldInfo field =>  $"{ResolveObjectName(field.DeclaringType)}#{field.Name}",
-                MethodInfo method => $"{ResolveObjectName(method.DeclaringType)}#{method.Name}",
+                Type t => new Func<Type, string>((type) => {
+                    if (type.IsGenericType) {
+                        type = type.GetGenericTypeDefinition();
+                    }
+                    if (type.IsGenericParameter) {
+                        return $"{type.Namespace}.{type.Name}";
+                    }
+
+                    var custom = CommonGenerator.ResolveCustomName(type);
+                    if (type.HasElementType) {
+                        custom = CommonGenerator.ResolveCustomName(type.GetElementType());
+                    }
+                    if (type.IsNested && custom != null) {
+                        return $"{ResolveObjectName(type.DeclaringType)}+{custom}";
+                    }
+                    return custom ?? type.FullName;
+                }).Invoke(t),
+                string s => s,
+                FieldInfo field =>  $"{ResolveObjectName(field.DeclaringType)}#{CommonGenerator.ResolveCustomName(field) ?? field.Name}",
+                MethodInfo m => new Func<MethodInfo, string>((method) => {
+                    if (method.IsGenericMethod) {
+                        method = method.GetGenericMethodDefinition();
+                    }
+                    else if (method.DeclaringType.IsGenericType) {
+                        method = method.DeclaringType.GetGenericTypeDefinition().GetAllMethods().FirstOrDefault(m => m.Name == method.Name);
+                    }
+
+                    return
+                        $"{ResolveObjectName(method.DeclaringType)}#{(CommonGenerator.ResolveCustomName(method) ?? method.Name)}";
+                }).Invoke(m),
                 ConstructorInfo constructor => $"{ResolveObjectName(constructor.DeclaringType)}#{constructor.Name}",
                 _ => null
             };
@@ -94,10 +121,11 @@ namespace CodeGen.Generators
 
         private static TypeInfo GetTypeInfo(Type type) {
             return new TypeInfo {
-                Name = ResolveObjectName(type).Trim('*', '&'),
+                Name = ResolveObjectName(type).Trim('&', '*').Replace("[]", ""),
                 GenericArguments = type.GetGenericArguments().Select(GetTypeInfo).ToArray(),
                 IsByRef = type.IsByRef,
-                IsPointer = type.IsPointer
+                IsPointer = type.IsPointer,
+                IsArray = type.IsArray
             };
         }
 
@@ -139,14 +167,14 @@ namespace CodeGen.Generators
                 };
             var methodBody = _method.GetMethodBody();
             return new SerializableMethodBody {
-                Instructions = instructions.ToList(),
+                Instructions = instructions.ToArray(),
                 IlCode = methodBody.GetILAsByteArray(),
                 MaxStackSize = methodBody.MaxStackSize,
                 LocalVariables = methodBody.LocalVariables.Select(l => 
                     new SerializableLocalVariableInfo {
                         IsPinned = l.IsPinned, 
                         Info = GetTypeInfo(l.LocalType)
-                    }).ToList()
+                    }).ToArray()
             };
         }
     }

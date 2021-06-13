@@ -88,6 +88,9 @@ namespace Parser
                     var prevInstructions = instructions[^1];
                     offset = prevInstructions.Offset + prevInstructions.OpCode.Size +
                              GetByteCount(prevInstructions.OpCode.OperandType);
+                    if (prevInstructions.OpCode == OpCodes.Switch) {
+                        offset += prevInstructions.OperandToken!.Value * 4;
+                    }
                 }
                 instructions.Add(
                     new Instruction {

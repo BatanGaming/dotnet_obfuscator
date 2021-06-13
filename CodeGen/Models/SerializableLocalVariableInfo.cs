@@ -5,7 +5,7 @@ namespace CodeGen.Models
     [Serializable]
     public class SerializableLocalVariableInfo
     {
-        public TypeInfo Info { get; set; }
-        public bool IsPinned { get; set; }
+        public TypeInfo Info;
+        public bool IsPinned;
     }
 }

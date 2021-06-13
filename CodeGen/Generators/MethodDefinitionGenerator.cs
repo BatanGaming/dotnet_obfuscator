@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 
 namespace CodeGen.Generators
@@ -14,7 +12,7 @@ namespace CodeGen.Generators
 
         public string Generate() {
             var code = $@"DefineMethod(
-                        ""{_method.Name}"",
+                        ""{CommonGenerator.ResolveCustomName(_method)}"",
                         {string.Join(" | ", AttributesGenerator.Generate(_method.Attributes))}
                         )";
             return code;
