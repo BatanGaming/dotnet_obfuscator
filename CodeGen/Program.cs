@@ -73,6 +73,9 @@ namespace ResultProject
             $REFERENCED_ASSEMBLIES
         };
 
+        private static Stopwatch _generationWatch = new();
+        private static int _generationCount = 0;
+
         private static Type GetTypeByName(string name) {
             var assemblies = AppDomain.CurrentDomain.GetAssemblies();
             foreach (var assembly in assemblies.Except(new[] { _currentAssembly })) {
@@ -160,7 +163,7 @@ namespace ResultProject
                             method = GetMethodByName(instruction.OperandInfo,
                             instruction.OperandInfo.Parameters, genericTypes, instruction.OperandInfo.DeclaringTypeGenericTypes);
                         }
-                        Console.WriteLine($"Resolved method {instruction.OperandInfo.OperandName} into {method.DeclaringType.FullName}.{method.Name}");
+                        
                         token = method.DeclaringType.IsGenericType
                             ? ilInfo.GetTokenFor(method.MethodHandle, method.DeclaringType.TypeHandle)
                             : ilInfo.GetTokenFor(method.MethodHandle);
@@ -168,7 +171,7 @@ namespace ResultProject
                     }
                     case OperandTypeInfo.Field: {
                         var field = GetFieldByName(instruction.OperandInfo.OperandName, genericTypes, instruction.OperandInfo.DeclaringTypeGenericTypes);
-                        Console.WriteLine($"Resolved field {instruction.OperandInfo.OperandName} into {field.DeclaringType.FullName}.{field.Name}");
+                        
                         token = field.DeclaringType.IsGenericType
                             ? ilInfo.GetTokenFor(field.FieldHandle, field.DeclaringType.TypeHandle)
                             : ilInfo.GetTokenFor(field.FieldHandle);
@@ -185,14 +188,14 @@ namespace ResultProject
                                 .Concat(instruction.OperandInfo.GenericTypes ?? Enumerable.Empty<TypeInfo>())
                                 .Concat(instruction.OperandInfo.DeclaringTypeGenericTypes ?? Enumerable.Empty<TypeInfo>()).ToArray()
                         }, genericTypes);
-                        Console.WriteLine($"Resolved type {instruction.OperandInfo.OperandName} into {type.FullName ?? type.Name}");
+                        
                         token = ilInfo.GetTokenFor(type.TypeHandle);
                         break;
                     }
                 }
-                Console.WriteLine($"Overwriting at 0x{((int)instruction.Offset + instruction.Size):X2}");
+                
                 OverwriteInt32(token, (int)instruction.Offset + instruction.Size, body.IlCode);
-                Console.WriteLine();
+                
             }
         }
 
@@ -291,6 +294,8 @@ namespace ResultProject
         }
 
         private static Delegate GetGenericMethod(MethodBase methodBase, string name, IReadOnlyDictionary<string, Type> genericTypes, object target) {
+            _generationCount++;
+            _generationWatch.Start();
             var parameters = methodBase.GetParameters().Select(p => ConstructGenericType(p.ParameterType, genericTypes)).ToList();
             var returnType = methodBase is ConstructorInfo || ((MethodInfo)methodBase).ReturnType == typeof(void)
                 ? null
@@ -324,11 +329,12 @@ namespace ResultProject
             ilInfo.SetLocalSignature(localVarSigHelper.GetSignature());
             OverwriteTokens(methodBody, ilInfo, genericTypes);
             ilInfo.SetCode(methodBody.IlCode, methodBody.MaxStackSize);
+            _generationWatch.Stop();
             return method.CreateDelegate(delegateType, target);
         }
 
         public static Delegate GetMethod(MethodBase methodBase, string name, Dictionary<string, Type> genericTypes, object target) {
-            Console.WriteLine($"Generating method {name}");
+
             if (genericTypes != null) {
                 return GetGenericMethod(methodBase, name, genericTypes, target);
             }
@@ -336,6 +342,8 @@ namespace ResultProject
                 return method.CreateDelegate(delegateType, target);
             }
 
+            _generationCount++;
+            _generationWatch.Start();
             var parameters = methodBase.GetParameters().Select(p => p.ParameterType).ToList();
             var hasReturnType = methodBase is MethodInfo info && info.ReturnType != typeof(void);
             delegateType = CloseDelegateType(
@@ -363,7 +371,7 @@ namespace ResultProject
             var localVarSigHelper = SignatureHelper.GetLocalVarSigHelper();
             foreach (var local in methodBody.LocalVariables) {
                 var type = ConstructGenericType(local.Info, genericTypes);
-                Console.WriteLine($"Resolved {local.Info.Name} into {type.FullName}");
+
                 localVarSigHelper.AddArgument(type, local.IsPinned);
             }
             ilInfo.SetLocalSignature(localVarSigHelper.GetSignature());
@@ -371,7 +379,7 @@ namespace ResultProject
             OverwriteTokens(methodBody, ilInfo);
             ilInfo.SetCode(methodBody.IlCode, methodBody.MaxStackSize);
             _methods[name] = (method, delegateType);
-            Console.WriteLine();
+            _generationWatch.Stop();
             return method.CreateDelegate(delegateType, target);
         }
 
@@ -382,7 +390,6 @@ namespace ResultProject
         }
 
         public static void Main(string[] args) {
-            Console.WriteLine("Creating assembly");
             _methods = JsonConvert.DeserializeObject<Dictionary<string, object>>(File.ReadAllText(@"$PATH_TO_METHODS"));
             _currentAssembly = Assembly.GetExecutingAssembly();
             LoadAssemblies();
@@ -436,10 +443,13 @@ namespace ResultProject
             #region Properties
             $PROPERTIES
             #endregion
-            Console.WriteLine("Assembly created");
+            
             #region CreatedTypes    
             $CREATED_TYPES
             #endregion
+
+            Console.WriteLine($"Generations count: {_generationCount}");
+            Console.WriteLine($"Total generations time {_generationWatch.Elapsed.TotalMilliseconds * 1000:F3} us");
         }
     }
 }
