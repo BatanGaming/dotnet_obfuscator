@@ -11,7 +11,6 @@ Task list
 - - [x] Methods
 - - [x] Generic methods
 - - [x] Properties
-- - [x] Properties (reflection)
 - - [ ] Events
 - Other
 - - [x] Lambdas
