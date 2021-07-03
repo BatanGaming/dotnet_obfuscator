@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using CodeGen.Extensions;
+using System.Text;
 
 namespace CodeGen.Generators
 {
@@ -16,11 +16,36 @@ namespace CodeGen.Generators
         private static readonly Dictionary<MethodBase, string> _methodsDefinitionsBuildersNames = new Dictionary<MethodBase, string>();
         private static readonly Dictionary<MethodBase, string> _methodsBodiesBuildersNames = new Dictionary<MethodBase, string>();
         private static readonly Dictionary<PropertyInfo, string> _propertiesBuildersNames = new Dictionary<PropertyInfo, string>();
-        private static readonly char[] _specialCharacters = {'.', '<', '>', '`'};
+
+        private static readonly StringBuilder _nameBuilder = new StringBuilder("a");
+        private static readonly IList<string> _forbiddenNames = new List<string> {"as", "do", "is", "if", "in"};
+
+        private static void NextName() {
+            var i = 1;
+            _nameBuilder[^i]++;
+            while (_nameBuilder[^i] > 'z') {
+                _nameBuilder[^i++] = 'a';
+                if (i > _nameBuilder.Length) {
+                    _nameBuilder.Insert(0, 'a');
+                    break;
+                }
+                _nameBuilder[^i]++;
+            }
+        }
+
+        public static string GenerateUniqueName() {
+            var result = _nameBuilder.ToString();
+            while (_forbiddenNames.Contains(result)) {
+                NextName();
+                result = _nameBuilder.ToString();
+            }
+            NextName();
+            return result;
+        }
 
         public static bool CheckIfCustomGenericArgument(Type type) {
             return type.GetGenericArguments().Any(t =>
-                ResolveCustomName(t) != null || (t.IsGenericType && CheckIfCustomGenericArgument(t)));
+                ResolveCustomName(t) != null || (t.IsGenericType && (CheckIfCustomGenericArgument(t) || CheckIfCustomGenericArgument(t.GetGenericTypeDefinition()))));
         }
 
         public static string GetFullName(Type type) {
@@ -34,17 +59,36 @@ namespace CodeGen.Generators
 
             return $"{type.Namespace}.{type.Name} {string.Join(',', type.GetGenericArguments().Select(GetFullName))}";
         }
-        
-        public static string FixSpecialName(string name) {
-            return _specialCharacters
-                .Aggregate(name, (current, character) => current.Replace(character.ToString(), ""))
-                .Replace("[]", "Array");
-        }
 
         public static string ResolveTypeName(Type type) {
             var custom = ResolveCustomName(type);
             if (custom != null) {
                 return custom;
+            }
+
+            if (type.HasElementType) {
+                custom = ResolveCustomName(type.GetElementType());
+                if (custom != null) {
+                    var func = "";
+                    if (type.IsArray) {
+                        func = "MakeArrayType()";
+                    }
+                    else if (type.IsByRef) {
+                        func = "MakeByRefType()";
+                    }
+                    else if (type.IsPointer) {
+                        func = "MakePointerType()";
+                    }
+
+                    return $"{custom}.{func}";
+                }
+            }
+
+            if (type.IsGenericType) {
+                custom = ResolveCustomName(type.GetGenericTypeDefinition());
+                if (custom != null) {
+                    return $"{custom}.MakeGenericType({string.Join(',', type.GetGenericArguments().Select(ResolveTypeName))})";
+                }
             }
             var generic = "";
             if (CheckIfCustomGenericArgument(type)) {
@@ -74,67 +118,28 @@ namespace CodeGen.Generators
         }
         
         public static string GenerateTypeGeneratorName(Type type) {
-            var name = type.IsSpecialName(_specialCharacters)
-                ? FixSpecialName(type.Name)
-                : type.Name;
-            var prefix = type.IsInterface
-                ? "interface"
-                : type.IsEnum
-                    ? "enum"
-                    : type.IsValueType
-                        ? "struct"
-                        : "class";
-            var resultName = DuplicatesFixer.Fix($"{prefix}_{name}_builder");
-            _typesBuildersNames[type] = resultName;
+            _typesBuildersNames[type] = GenerateUniqueName();
             return _typesBuildersNames[type];
         }
 
         public static string GeneratePropertyGeneratorName(PropertyInfo property) {
-            var name = property.IsSpecialName(_specialCharacters)
-                ? FixSpecialName(property.Name)
-                : property.Name;
-            var declaringTypeName = property.DeclaringType.IsSpecialName(_specialCharacters)
-                ? FixSpecialName(property.DeclaringType.Name)
-                : property.DeclaringType.Name;
-            var resultName = DuplicatesFixer.Fix($"{declaringTypeName}_property_{name}_builder");
-            _propertiesBuildersNames[property] = resultName;
+            _propertiesBuildersNames[property] = GenerateUniqueName();
             return _propertiesBuildersNames[property];
         }
 
         public static string GenerateFieldGeneratorName(FieldInfo field) {
-            var name = field.IsSpecialName(_specialCharacters)
-                ? FixSpecialName(field.Name)
-                : field.Name;
-            var declaringTypeName = field.DeclaringType.IsSpecialName(_specialCharacters)
-                ? FixSpecialName(field.DeclaringType.Name)
-                : field.DeclaringType.Name;
-            var resultName = DuplicatesFixer.Fix($"type_{declaringTypeName}_field_{name}_builder");
-            _fieldsBuildersNames[field] = resultName;
+            _fieldsBuildersNames[field] = GenerateUniqueName();
             return _fieldsBuildersNames[field];
         }
 
         public static string GenerateMethodDefinitionGeneratorName(MethodBase method) {
-            var name = method.IsSpecialName(_specialCharacters)
-                ? FixSpecialName(method.Name)
-                : method.Name;
-            var declaringTypeName = method.DeclaringType.IsSpecialName(_specialCharacters)
-                ? FixSpecialName(method.DeclaringType.Name)
-                : method.DeclaringType.Name;
-            var resultName = DuplicatesFixer.Fix($"type_{declaringTypeName}_method_{name}_builder");
-            _methodsDefinitionsBuildersNames[method] = resultName;
+
+            _methodsDefinitionsBuildersNames[method] = GenerateUniqueName();
             return _methodsDefinitionsBuildersNames[method];
         }
 
         public static string GenerateMethodBodyGeneratorName(MethodBase method) {
-            var name = method.IsSpecialName(_specialCharacters)
-                ? FixSpecialName(method.Name)
-                : method.Name;
-            var declaringTypeName = method.DeclaringType.IsSpecialName(_specialCharacters)
-                ? FixSpecialName(method.DeclaringType.Name)
-                : method.DeclaringType.Name;
-            var resultName = DuplicatesFixer.Fix($"type_{declaringTypeName}_il_method_{name}_builder");
-
-            _methodsBodiesBuildersNames[method] = resultName;
+            _methodsBodiesBuildersNames[method] = GenerateUniqueName();
             return _methodsBodiesBuildersNames[method];
         }
         

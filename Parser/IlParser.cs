@@ -20,6 +20,11 @@ namespace Parser
             return typeInfo switch
             {
                 var x when
+                    x == OperandType.ShortInlineBrTarget ||
+                    x == OperandType.ShortInlineI ||
+                    x == OperandType.ShortInlineVar => 1,
+                OperandType.InlineVar => 2,
+                var x when
                     x == OperandType.InlineBrTarget ||
                     x == OperandType.InlineField ||
                     x == OperandType.InlineI ||
@@ -33,10 +38,6 @@ namespace Parser
                 var x when
                     x == OperandType.InlineI8 ||
                     x == OperandType.InlineR => 8,
-                var x when
-                    x == OperandType.ShortInlineBrTarget ||
-                    x == OperandType.ShortInlineI ||
-                    x == OperandType.ShortInlineVar => 1,
                 _ => 0
             };
         }
@@ -53,9 +54,13 @@ namespace Parser
                 operandToken |= ilBytes[i] << (8 * j);
             }
 
-            if (opCode.FlowControl == FlowControl.Branch || opCode.FlowControl == FlowControl.Cond_Branch) {
-                operandToken = i + 1 + (byteCount == 1 ? (sbyte) operandToken : operandToken);
+            if (opCode == OpCodes.Switch) {
+                i += operandToken * 4;
             }
+
+            /*else if (opCode.FlowControl == FlowControl.Branch || opCode.FlowControl == FlowControl.Cond_Branch) {
+                operandToken = i + 1 + (byteCount == 1 ? (sbyte) operandToken : operandToken);
+            }*/
 
             return operandToken;
         }
@@ -83,6 +88,9 @@ namespace Parser
                     var prevInstructions = instructions[^1];
                     offset = prevInstructions.Offset + prevInstructions.OpCode.Size +
                              GetByteCount(prevInstructions.OpCode.OperandType);
+                    if (prevInstructions.OpCode == OpCodes.Switch) {
+                        offset += prevInstructions.OperandToken!.Value * 4;
+                    }
                 }
                 instructions.Add(
                     new Instruction {

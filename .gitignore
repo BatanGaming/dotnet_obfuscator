@@ -5,6 +5,9 @@
 
 DynamicAssembly/
 Test/
+ResultProject/
+TestAssembly/
+TestProject/
 
 # User-specific files
 *.rsuser

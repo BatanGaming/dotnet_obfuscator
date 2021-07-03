@@ -33,15 +33,17 @@ namespace CodeGen.Generators
 
             var ilGeneratorName = CommonGenerator.GenerateMethodBodyGeneratorName(_method);
             var builder = new StringBuilder();
-            var delegateTypeName = DuplicatesFixer.Fix($"delegate_type_{CommonGenerator.FixSpecialName(_method.DeclaringType.Name)}_{CommonGenerator.FixSpecialName(_method.Name)}_{string.Join('_', _method.GetParameters().Select(p => CommonGenerator.FixSpecialName(p.ParameterType.Name)))}");
+            var delegateTypeName = CommonGenerator.GenerateUniqueName();
             var closedDelegateTypeName = delegateTypeName;
             builder.AppendLine($"var {delegateTypeName} = typeof({genericTypeName});");
             if (makeGenericString != null) {
-                closedDelegateTypeName += "_closed";
+                closedDelegateTypeName = CommonGenerator.GenerateUniqueName();
                 builder.AppendLine($"var {closedDelegateTypeName} = {delegateTypeName}.{makeGenericString};");
             }
             
             builder.AppendLine($@"{ilGeneratorName}.Emit(OpCodes.Call, typeof(MethodBase).GetMethod(""GetCurrentMethod"", Type.EmptyTypes));");
+            builder.AppendLine(
+                $@"{ilGeneratorName}.Emit(OpCodes.Ldstr, ""{CommonGenerator.ResolveCustomName(_method.DeclaringType)}#{CommonGenerator.ResolveCustomName(_method)}"");");
             if (_method.IsGenericMethodDefinition || _method.DeclaringType.IsGenericTypeDefinition) {
                 builder.AppendLine(
                     $@"{ilGeneratorName}.Emit(OpCodes.Newobj, typeof(Dictionary<string, Type>).GetConstructor(Type.EmptyTypes));");
@@ -51,7 +53,7 @@ namespace CodeGen.Generators
                 }
                 foreach (var genericParameter in genericArguments) {
                     builder.AppendLine($@"{ilGeneratorName}.Emit(OpCodes.Dup);");
-                    builder.AppendLine($@"{ilGeneratorName}.Emit(OpCodes.Ldstr, ""{genericParameter.Namespace}.{genericParameter.Name}"");");
+                    builder.AppendLine($@"{ilGeneratorName}.Emit(OpCodes.Ldstr, ""{genericParameter.Name}"");");
                     builder.AppendLine($@"{ilGeneratorName}.Emit(OpCodes.Ldtoken, {CommonGenerator.ResolveCustomName(genericParameter)});");
                     builder.AppendLine(
                         $@"{ilGeneratorName}.Emit(OpCodes.Call, typeof(Type).GetMethod(""GetTypeFromHandle"", new [] {{ typeof(RuntimeTypeHandle) }}));");
@@ -66,7 +68,7 @@ namespace CodeGen.Generators
                 ? $"{ilGeneratorName}.Emit(OpCodes.Ldnull);"
                 : $"{ilGeneratorName}.Emit(OpCodes.Ldarg_0);"
             );
-            builder.AppendLine(@$"{ilGeneratorName}.Emit(OpCodes.Call, typeof(Program).GetMethod(""GetMethod"", new [] {{typeof(MethodBase), typeof(Dictionary<string, Type>), typeof(object)}}));");
+            builder.AppendLine(@$"{ilGeneratorName}.Emit(OpCodes.Call, typeof(Program).GetMethod(""GetMethod"", new [] {{typeof(MethodBase), typeof(string), typeof(Dictionary<string, Type>), typeof(object)}}));");
 
             builder.AppendLine($"{ilGeneratorName}.Emit(OpCodes.Castclass, {closedDelegateTypeName});");
             for (var i = 0; i < parameters.Count; ++i) {
