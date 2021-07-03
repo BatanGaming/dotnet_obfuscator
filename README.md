@@ -1,4 +1,4 @@
-Task list
+What's done
 - Types
 - - [x] Classes
 - - [x] Structs
